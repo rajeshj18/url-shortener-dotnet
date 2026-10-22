@@ -169,3 +169,4 @@ says so openly: the in-depth design phase was a deliberate choice, recorded in t
 - 2026-10-22 · Draft · 31 tasks in 3 stages; definition of done with a test-metrics gate; estimates corrected (C ~40 h, B ~46 h, A ~53 h).
 - 2026-10-22 · **Approved** · Engineer approved stage 1 (core) as the starting plan.
 - 2026-10-22 · **Amended and approved** · Gaps found by the traceability matrix (requirements §6.8), approved by the engineer: prompt library with version history, and prompt iterations logged for high-risk tasks (G1); k6 performance smoke in stage-1 CI via TSK-12 (G2); `CHANGELOG.md` and a CHANGELOG entry in the definition of done (G4). Stage 1 is now ~41.5 h.
+- 2026-10-22 · Changed at TSK-03 spec approval · The `migrate` step moves from TSK-03 to **TSK-06**: there are no migrations until the schema exists. Approved by the engineer.
