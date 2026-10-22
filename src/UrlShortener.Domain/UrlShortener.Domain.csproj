@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Domain: plain C#, no framework or project dependencies (ADR-0009). -->
+</Project>

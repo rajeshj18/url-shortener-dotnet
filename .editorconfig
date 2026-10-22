@@ -1,0 +1,56 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,xml,csproj,props,targets}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+# ---- ADR-0003 style, enforced as build errors (EnforceCodeStyleInBuild) ----
+# Block-scoped namespaces only (no file-scoped namespaces).
+csharp_style_namespace_declarations = block_scoped:error
+dotnet_diagnostic.IDE0160.severity = error
+# An explicit Program.Main (no top-level statements).
+csharp_style_prefer_top_level_statements = false:error
+dotnet_diagnostic.IDE0211.severity = error
+# Primary constructors and collection expressions are C# 12 features, so LangVersion 11 rejects them at compile time.
+
+# Explicit types where the type isn't obvious; braces always.
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_prefer_braces = true:error
+dotnet_diagnostic.IDE0011.severity = error
+
+# Usings outside the namespace, System first.
+csharp_using_directive_placement = outside_namespace:error
+dotnet_sort_system_directives_first = true
+
+# Naming: private fields _camelCase; interfaces start with I.
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_rule.private_fields_underscore.severity = error
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+dotnet_naming_rule.interfaces_start_with_i.symbols = interfaces
+dotnet_naming_rule.interfaces_start_with_i.style = prefix_i
+dotnet_naming_rule.interfaces_start_with_i.severity = error
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_style.prefix_i.required_prefix = I
+dotnet_naming_style.prefix_i.capitalization = pascal_case
+
+# ---- Justified analyzer suppressions (each one has a reason) ----
+# CA2007 (ConfigureAwait): ASP.NET Core has no SynchronizationContext, so ConfigureAwait(false) adds noise
+# and no safety. Microsoft's guidance for ASP.NET Core applications.
+dotnet_diagnostic.CA2007.severity = none

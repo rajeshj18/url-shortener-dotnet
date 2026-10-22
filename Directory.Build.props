@@ -1,0 +1,22 @@
+<Project>
+  <!-- Shared build settings for every project (ADR-0003). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>11</LangVersion>
+    <Nullable>enable</Nullable>
+    <!-- Classic style: explicit using directives, no implicit global usings. -->
+    <ImplicitUsings>disable</ImplicitUsings>
+
+    <!-- Quality gates in the compiler: every warning fails the build. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisMode>All</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Supply chain: fail the build on known-vulnerable packages, direct or transitive. -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+</Project>
