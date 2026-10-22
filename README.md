@@ -38,7 +38,17 @@ bash scripts/compose-smoke.sh
 |---|---|
 | Api | http://localhost:5080/health/live |
 | Redirect | http://localhost:5081/health/live |
-| Grafana (traces, logs, metrics) | http://localhost:3000. In **Explore → Tempo**, search for `service.name = urlshortener-api`. |
+| Grafana (traces, logs, metrics) | http://localhost:3000. See "Viewing telemetry" below. |
+
+**Viewing telemetry.** Our own dashboards arrive in TSK-22. The bundled "JVM" and "RED Metrics" dashboards
+expect other metric names, so they look empty. Until then, use **Explore** (compass icon) with the time
+range set to *Last 15 minutes*:
+
+| Signal | Data source | Query |
+|---|---|---|
+| Traces | Tempo | Search → Service Name `urlshortener-api` → Run query |
+| Metrics | Prometheus | `sum by (job) (rate(http_server_request_duration_seconds_count[1m]))` |
+| Logs | Loki | `{service_name="urlshortener-api"}` |
 
 **Build and test** (no Docker needed for the current tests):
 ```bash
