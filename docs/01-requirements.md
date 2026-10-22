@@ -65,4 +65,84 @@ The most significant one, what "system" means in the brief, is decided in ADR-00
 
 ## 6. Traceability to the brief
 
-*To follow:* a matrix linking each section of the brief to the artifact that addresses it.
+Each section of the brief is described in our own words (ADR-0011) and mapped to the artifacts that address it.
+**Status:** ✅ done · ⏳ planned (task ID) · ⚠️ gap or partial (see §6.8).
+
+### 6.1 Objective and scenario
+| Brief item | Addressed by | Status |
+|---|---|---|
+| A working prototype that turns a requirement into a reviewable engineering outcome | Stage 1 build (TSK-02 to TSK-22); PRs per task (ADR-0012) | ⏳ |
+| Show requirement understanding, task decomposition, multi-step execution, output generation and validation | §6.3 rows 1, 2, 4, 5, 6 | see below |
+| Engineer-led execution accelerated by AI, not autonomous orchestration | ADR-0012; engineer-authored sign-off commits; traceability log | ✅ |
+| A URL shortener with **core APIs** | FR-01 to FR-10; LLD §3; TSK-08 to TSK-10 | ⏳ |
+| … with **analytics** | FR-07; ADR-0008; LLD §6.5; **TSK-23 (stage 2)** | ⚠️ G3 |
+| … with **reliability features** | ADR-0002; LLD §6.6–6.7; HLD §5; TSK-11 | ⏳ |
+| Completed over 2–3 days with AI assistance, showing engineering judgment | Timebox discussion in `04-task-breakdown.md` §5; documented trade-offs (ADR alternatives) | ⚠️ G5 |
+
+### 6.2 Scope
+| Brief item | Addressed by | Status |
+|---|---|---|
+| Greenfield work | Scenario 1 (TSK-05 to TSK-13) | ⏳ |
+| Brownfield: enhancements, refactors, bug fixes | Scenario 2: expiry (TSK-14), validation refactor (TSK-16), alias race (TSK-15); analytics in stage 2 (TSK-23) | ⏳ |
+| Test and documentation improvements | TSK-17; Stryker (TSK-28, stage 3) | ⏳ |
+| Well-defined and ambiguous requirements | Scenarios 1–2 (well-defined); scenario 3 (TSK-19, TSK-20) | ⏳ |
+
+### 6.3 Core requirements
+| # | Brief item | Addressed by | Status |
+|---|---|---|---|
+| 1 | Requirement understanding: interpret intent, find ambiguity, normalize | This document (§1–5); `assumptions.md`; ADR-0001 | ✅ |
+| 2 | Task decomposition with dependencies and sequencing | `04-task-breakdown.md` (tasks, dependency graph, critical path), approved by the engineer | ✅ |
+| 3 | Codebase reasoning for brownfield work: impacted modules, services, APIs, data flows | Brownfield impact analyses (TSK-14 to TSK-16, TSK-18); HLD flows; ADR-0009 dependency rules | ⏳ |
+| 4a | AI across implementation, debugging, refactoring, test generation, documentation, review preparation | Every task (ADR-0012 §2); PR descriptions and AI self-review; the log records debugging sessions | ⏳ |
+| 4b | Tasks defined with intent, constraints, acceptance criteria, technical context | Task-spec template (TSK-01); `docs/tasks/TSK-xx` | ⏳ |
+| 4c | **Disciplined prompting with iterative refinement** | Prompt library with version history (TSK-01); prompt iterations logged for high-risk tasks (definition of done) | ⏳ (G1 resolved) |
+| 4d | Traceability: generated, edited or rejected, with rationale | `ai-usage/traceability-log.md` (PLAN-01 to PLAN-26 so far; TSK-xx to follow) | ✅ |
+| 4e | Quality gates: analysis, linting, tests, security, **performance** | ADR-0012 §5; TSK-04 (core gates); k6 performance smoke in CI from stage 1 (TSK-12) | ⏳ (G2 resolved) |
+| 4f | Secure AI usage | ADR-0011; gitleaks, SCA and CodeQL in TSK-04 | ✅ decided · ⏳ tooling |
+| 4g | Human sign-off for high-impact changes | ADR-0012 §4 risk classes; signed-off ADR commits (git history) | ✅ |
+| 4h | Explicit engineer ownership of correctness, maintainability, production readiness | PR checklist ownership statement (ADR-0012); merge commits by the engineer | ✅ decided · ⏳ in PRs |
+| 5 | Production-quality code, API and schema definitions, unit and integration tests, documentation | LLD §3–5 (API, schema, classes); OpenAPI (TSK-08); definition of done (`04` §2) | ✅ designed · ⏳ built |
+| 6 | Risks, trade-offs, failure scenarios, validation and safety guardrails | HLD §5 failure modes; ADR alternatives; LLD §6.7; `06-risks-tradeoffs` (TSK-22) | ✅ partly · ⏳ |
+| 7 | Controlled oversight: engineer leads and approves all outputs | ADR-0012; branch protection (TSK-04); propose and sign-off commits | ✅ |
+| 8 | Final engineering summary: plan and rationale, artifacts, risks, trade-offs, validation, assumptions, limitations | `08-final-summary` (TSK-22) | ⏳ |
+
+### 6.4 Deliverables
+| Brief item | Addressed by | Status |
+|---|---|---|
+| Working prototype, runnable end to end | `docker compose up`; demo scripts (TSK-21); clean-clone run (TSK-22) | ⏳ |
+| Architecture overview: components, tools, execution approach, control flow, key decisions | HLD (`03-architecture.md`) incl. §8 engineering workflow; ADR index | ✅ |
+| Three scenarios, each showing decomposition, execution, validation | `scenarios/` (TSK-13, TSK-18, TSK-20), fixed structure | ⏳ |
+| Setup instructions | README setup section (TSK-22) | ⏳ |
+| Testing approach, limitations, trade-offs | `05-testing-strategy`, `06-risks-tradeoffs` (TSK-22); definition of done (`04` §2) | ⏳ |
+| Publish in a new **public** GitHub repository and share the link | TSK-00 (publish); TSK-22 (final check) | ⏳ |
+
+### 6.5 Evaluation criteria
+| Brief item | Where the evidence is |
+|---|---|
+| Effectiveness of AI-assisted execution | Traceability log; AI disclosure in each PR; actual vs estimated hours |
+| Architecture and system design quality | HLD, LLD, 13 ADRs with alternatives |
+| Depth of decomposition and execution | `04-task-breakdown.md`; one PR per task |
+| Realism and quality of outputs | Running prototype; tests; load-test results (TSK-12) |
+| Rigour of validation and risk management | Quality gates (ADR-0012 §5); HLD failure modes; fault-injection tests (TSK-11) |
+| Clarity and defensibility of decisions | ADRs (context, alternatives, consequences, history) |
+| Core principles: modular, testable, reliable, secure, scalable, safe change management | Modular and testable: ADR-0009 and architecture tests · Reliable: ADR-0002, LLD §6.7 · Secure: ADR-0011, CodeQL/ZAP, validation rules · Scalable: capacity estimates, ADR-0004/0005 · Safe change management: expand/contract migrations, branch protection, API versioning (`/api/v1`), `CHANGELOG.md` (G4 resolved) |
+| Engineering judgment | "Measure first" (ADR-0006), Citus thresholds (ADR-0004), staged scope (`04` §1), rejected alternatives |
+
+### 6.6 Expectation
+| Brief item | Addressed by |
+|---|---|
+| Production-grade work with strong design fundamentals | HLD, LLD, ADRs; definition of done |
+| AI used as an accelerator, with the engineer owning outputs and reasoning | ADR-0012; signed-off commits; log entries where the engineer revised or rejected AI proposals (e.g. PLAN-14, PLAN-24) |
+
+### 6.7 Status summary
+- **Design phase:** complete (requirements, HLD, LLD, 13 accepted ADRs, approved task breakdown).
+- **Build:** planned as stage 1 (TSK-00 to TSK-22).
+
+### 6.8 Gaps found by this matrix
+| ID | Gap | Action | Decision |
+|---|---|---|---|
+| **G1** | **Iterative prompt refinement** isn't evidenced: the log records only a prompt summary | TSK-01: prompt library with a version history. For **High-risk tasks**, the `TSK-xx` log entry records the prompt iterations (v1 → v2 → … and why each changed). Add this to the definition of done. | ✅ Approved, in `04` (TSK-01, definition of done) |
+| **G2** | The **performance** gate runs in CI only from stage 2 | Move a **k6 smoke job into stage 1** (extend TSK-12 to start the compose stack in CI and run k6; ~+1 h), so all five gate types from the brief exist in stage 1 | ✅ Approved, in `04` (TSK-12) |
+| **G3** | **Analytics** is built only in stage 2 | Known and accepted (`04` §1). If stage 2 isn't reached, the final summary states it is designed but not built. | Accepted as known |
+| **G4** | **Safe change management** is evidenced only partly: there's no CHANGELOG | Add `CHANGELOG.md` (TSK-01). The definition of done requires an entry for every user-visible change. | ✅ Approved, in `04` (TSK-01, definition of done) |
+| **G5** | The **2–3 day timebox** is exceeded | Known; stated openly in the final summary with the rationale | Accepted as known |

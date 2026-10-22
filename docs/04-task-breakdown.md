@@ -38,8 +38,10 @@ Every stage only **adds** to the previous one. Nothing is redone, because the in
   - **coverage ≥ 80%** on Domain and Application.
 
   If any of these fails, GitHub **blocks the merge**. A drop in test count only raises a warning; the engineer decides in review.
-- The other required gates are green (build, analyzers, formatting, CodeQL, gitleaks, SCA), plus Trivy, ZAP and k6 from stage 2.
+- The other required gates are green: build, analyzers, formatting, CodeQL, gitleaks, SCA, **k6 performance smoke** (from TSK-12), and Trivy and ZAP from stage 2.
 - Docs, ADRs and assumptions are updated if behavior changed. The PR checklist is completed, and the `TSK-xx` log entry records the **actual hours**.
+- **`CHANGELOG.md` has an entry** for every user-visible change (API, behavior, configuration), so changes are traceable (matrix G4).
+- **High-risk tasks:** the log entry records the **prompt iterations**: v1 → v2 → … with why each was refined, linking to the versioned prompt in the prompt library (matrix G1).
 
 ## 3. Tasks
 
@@ -51,7 +53,7 @@ Every stage only **adds** to the previous one. Nothing is redone, because the in
 | ID | Task | Depends on | Risk | Est. | Tests | Done when |
 |---|---|---|---|---|---|---|
 | TSK-00 | Publish the repository to GitHub (public); push `main` | — | High | 0.5 h | — | Repo is public; no PDF, secrets or company references |
-| TSK-01 | Engineering workflow: `CLAUDE.md`, task-spec template, prompt library, PR template (ADR-0012 checklist), `CODEOWNERS`, `.gitattributes`, `LICENSE` | 00 | Medium | 1.5 h | — | Files exist; the template contains the checklist |
+| TSK-01 | Engineering workflow: `CLAUDE.md`, task-spec template, **prompt library with version history** (each prompt file keeps a revision log), PR template (ADR-0012 checklist), `CODEOWNERS`, `.gitattributes`, `LICENSE`, **`CHANGELOG.md`** | 00 | Medium | 2 h | — | Files exist; the template contains the checklist |
 | TSK-02 | Solution skeleton: solution file, 6 `src` projects and 4 test projects, `Directory.Build.props` (net8.0, C# 11, warnings as errors), `.editorconfig`, health endpoints, OpenTelemetry wiring | 01 | Medium | 2 h | Architecture tests (ADR-0009 rules) | Build and tests pass |
 | TSK-03 | Local stack: `docker-compose.yml` (PostgreSQL, `grafana/otel-lgtm`), 3 Dockerfiles, `migrate` step, `.env.example` | 02 | Medium | 1.5 h | Compose smoke check | Everything healthy; traces visible in Grafana. **Re-estimate point 1.** |
 | TSK-04 | CI core gates and branch protection: build, analyzers, formatting, unit/architecture/integration tests, **test-metrics report and gate** (failed = 0, skipped = 0, coverage ≥ 80%), CodeQL, gitleaks, SCA | 02, 03 | High | 2.5 h | A deliberately failing test proves the gate blocks merging | Checks required; direct pushes to `main` blocked |
@@ -66,7 +68,7 @@ Every stage only **adds** to the previous one. Nothing is redone, because the in
 | TSK-09 | **Redirect:** `GET`/`HEAD /{code}`, replica read with a capped primary fallback, caching headers, no-op click publisher | 06 | High | 2 h | Unit: state → status · API: 302/404/410, headers, `HEAD`, create-then-redirect at once | FR-03, NFR-07 met |
 | TSK-10 | Metadata and delete: `GET`/`DELETE /api/v1/urls/{code}`, owner checks, soft delete → 410 | 08 | Medium | 1.5 h | API: owner rules, delete then 410 | FR-05, 06 met |
 | TSK-11 | Resilience: timeouts, retries, circuit breakers, cancellation (LLD §6.7); idempotency-key cleanup (LLD §6.6) | 08, 09 | High | 3 h | Unit: retry rule (failure before vs during commit) · Integration: **fault injection**, breaker opens and closes, cleanup under the lock | Behavior matches LLD §6.7 |
-| TSK-12 | v1 load test (k6, run locally) and the ADR-0006 cache decision | 09, 11 | Medium | 2 h | k6 against the pass/fail criteria | Results recorded in ADR-0006 |
+| TSK-12 | v1 load test (k6, run locally) and the ADR-0006 cache decision; **k6 smoke job in CI** (starts the compose stack, fails if p99 exceeds the SLOs) | 04, 09, 11 | Medium | 3 h | k6 against the pass/fail criteria; CI smoke proven to fail on a seeded slow endpoint | Results recorded in ADR-0006; performance gate required in branch protection |
 | TSK-13 | Scenario 1 write-up | 12 | Low | 1 h | — | Ask → normalization → decomposition → execution → validation → outcome |
 
 #### Scenario 2: Brownfield (on the merged scenario-1 code)
@@ -139,9 +141,9 @@ Off the critical path: 04, 05, 09, 10, 15, 16, 19–21.
 
 | Stage | Tasks | Estimate | Cumulative |
 |---|---|---|---|
-| **1. Core (C)** | TSK-00 to 22 | **~40 h** | ~40 h |
-| 2. Lean (B) | TSK-23 to 25 | ~6 h | ~46 h |
-| 3. Full (A) | TSK-26 to 29 | ~7 h | ~53 h |
+| **1. Core (C)** | TSK-00 to 22 | **~41.5 h** | ~41.5 h |
+| 2. Lean (B) | TSK-23 to 25 | ~6 h | ~47.5 h |
+| 3. Full (A) | TSK-26 to 29 | ~7 h | ~54.5 h |
 | Conditional | TSK-30 | ~3 h | — |
 
 **How the estimates were made:** this is engineering judgment, not measurement. Each estimate covers the **whole loop**,
@@ -158,7 +160,7 @@ of which AI code generation is the smallest part. For a typical 3 h task:
 
 Across stage 1, that's roughly 7–8 h of AI generation, ~10 h of debugging, ~12 h of review, ~5 h of CI and ~5 h of documentation and process work.
 Treat every figure as **±30–50%**. Actual hours are recorded in each `TSK-xx` log entry, and the plan is re-estimated at decision point 1.
-**Lighter review on Low-risk tasks**, while High-risk tasks keep a full review, would bring stage 1 to roughly **32–35 h**.
+**Lighter review on Low-risk tasks**, while High-risk tasks keep a full review, would bring stage 1 to roughly **33–36 h**.
 
 **Timebox:** the brief allows 2–3 days, and the design phase used about 2 of them. Even stage 1 goes beyond the timebox. The final summary
 says so openly: the in-depth design phase was a deliberate choice, recorded in this repository.
@@ -166,3 +168,4 @@ says so openly: the in-depth design phase was a deliberate choice, recorded in t
 ## History
 - 2026-10-22 · Draft · 31 tasks in 3 stages; definition of done with a test-metrics gate; estimates corrected (C ~40 h, B ~46 h, A ~53 h).
 - 2026-10-22 · **Approved** · Engineer approved stage 1 (core) as the starting plan.
+- 2026-10-22 · **Amended and approved** · Gaps found by the traceability matrix (requirements §6.8), approved by the engineer: prompt library with version history, and prompt iterations logged for high-risk tasks (G1); k6 performance smoke in stage-1 CI via TSK-12 (G2); `CHANGELOG.md` and a CHANGELOG entry in the definition of done (G4). Stage 1 is now ~41.5 h.
