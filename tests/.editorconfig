@@ -1,0 +1,4 @@
+# Test-specific analyzer settings. Each suppression has a reason.
+[*.cs]
+# CA1707: test names use underscores (Method_condition_expectedResult), so the behaviour reads at a glance.
+dotnet_diagnostic.CA1707.severity = none
