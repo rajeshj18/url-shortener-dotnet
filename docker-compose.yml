@@ -1,0 +1,67 @@
+# Local stack, stage 1 (HLD §4.2). Kafka and the AnalyticsWorker are added in stage 2 (TSK-23).
+# Usage:  cp .env.example .env   then   docker compose up -d --build --wait
+# All host ports are bound to 127.0.0.1, so nothing is exposed on the network.
+name: urlshortener
+
+services:
+  postgres:
+    image: postgres:16.15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Copy .env.example to .env first}
+      POSTGRES_USER: ${POSTGRES_USER:?Copy .env.example to .env first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env first}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  otel-lgtm:
+    # Grafana + Tempo (traces) + Loki (logs) + Prometheus (metrics) + OpenTelemetry Collector (ADR-0013).
+    image: grafana/otel-lgtm:0.37.0
+    ports:
+      - "127.0.0.1:3000:3000"   # Grafana UI
+      - "127.0.0.1:4317:4317"   # OTLP gRPC
+      - "127.0.0.1:4318:4318"   # OTLP HTTP
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+
+  api:
+    build:
+      context: .
+      dockerfile: src/UrlShortener.Api/Dockerfile
+    image: urlshortener-api:local
+    environment:
+      OpenTelemetry__Endpoint: http://otel-lgtm:4317
+    ports:
+      - "127.0.0.1:5080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-lgtm:
+        condition: service_healthy
+
+  redirect:
+    build:
+      context: .
+      dockerfile: src/UrlShortener.Redirect/Dockerfile
+    image: urlshortener-redirect:local
+    environment:
+      OpenTelemetry__Endpoint: http://otel-lgtm:4317
+    ports:
+      - "127.0.0.1:5081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-lgtm:
+        condition: service_healthy
+
+volumes:
+  pgdata:

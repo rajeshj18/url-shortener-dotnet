@@ -1,0 +1,17 @@
+# Keep the build context small, and never let confidential files or secrets into an image (ADR-0011).
+**/bin/
+**/obj/
+**/TestResults/
+.git/
+.vs/
+.vscode/
+.idea/
+.venv/
+*.pdf
+.env
+.env.*
+!.env.example
+*.pfx
+*.key
+docs/
+tests/

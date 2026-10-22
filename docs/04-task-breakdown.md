@@ -162,6 +162,35 @@ Across stage 1, that's roughly 7–8 h of AI generation, ~10 h of debugging, ~12
 Treat every figure as **±30–50%**. Actual hours are recorded in each `TSK-xx` log entry, and the plan is re-estimated at decision point 1.
 **Lighter review on Low-risk tasks**, while High-risk tasks keep a full review, would bring stage 1 to roughly **33–36 h**.
 
+### 5.1 Re-estimate point 1 (after TSK-03), accepted by the engineer on 2026-10-22
+| Task | Estimate | Actual |
+|---|---|---|
+| TSK-00 | 0.5 h | 0.5 h |
+| TSK-01 | 2 h | 0.5 h |
+| TSK-02 | 2 h | 0.37 h |
+| TSK-03 | 1.5 h | 0.17 h |
+| **Total** | **6 h** | **1.5 h (ratio 0.26)** |
+
+The first tasks were scaffolding and infrastructure, where AI generation is strongest. The remaining tasks
+carry business rules, concurrency and resilience, so the ratio applied is **cautious and set per risk
+class**, rather than the observed 0.26:
+
+| Remaining stage-1 tasks | Original | Ratio | New |
+|---|---|---|---|
+| High risk (TSK-04, 06, 07, 08, 09, 11, 14, 15, 19) | 21 h | 0.45 | ~9.5 h |
+| Medium (TSK-05, 10, 12, 21, 22) | 10 h | 0.35 | ~3.5 h |
+| Low (TSK-13, 16, 17, 18, 20) | 5 h | 0.30 | ~1.5 h |
+
+| Stage | Original | Re-estimated |
+|---|---|---|
+| 1. Core, including the 1.5 h already done | ~41.5 h | **~16 h** |
+| 2. Lean | +6 h | +~2.5 h |
+| 3. Full | +7 h | +~3 h |
+| **All stages** | ~54.5 h | **~21.5 h** |
+
+**Decision:** the order stays the same (stage 1, then decision point 2), but **stages 2 and 3 are now planned**
+rather than optional. Decision point 2 re-checks this with about 20 measured tasks.
+
 **Timebox:** the brief allows 2–3 days, and the design phase used about 2 of them. Even stage 1 goes beyond the timebox. The final summary
 says so openly: the in-depth design phase was a deliberate choice, recorded in this repository.
 
@@ -169,3 +198,5 @@ says so openly: the in-depth design phase was a deliberate choice, recorded in t
 - 2026-10-22 · Draft · 31 tasks in 3 stages; definition of done with a test-metrics gate; estimates corrected (C ~40 h, B ~46 h, A ~53 h).
 - 2026-10-22 · **Approved** · Engineer approved stage 1 (core) as the starting plan.
 - 2026-10-22 · **Amended and approved** · Gaps found by the traceability matrix (requirements §6.8), approved by the engineer: prompt library with version history, and prompt iterations logged for high-risk tasks (G1); k6 performance smoke in stage-1 CI via TSK-12 (G2); `CHANGELOG.md` and a CHANGELOG entry in the definition of done (G4). Stage 1 is now ~41.5 h.
+- 2026-10-22 · Changed at TSK-03 spec approval · The `migrate` step moves from TSK-03 to **TSK-06**: there are no migrations until the schema exists. Approved by the engineer.
+- 2026-10-22 · **Re-estimate point 1 accepted** · Stage 1 ~16 h, all stages ~21.5 h; stages 2 and 3 planned (§5.1).

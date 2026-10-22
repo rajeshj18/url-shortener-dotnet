@@ -7,6 +7,14 @@ Each entry names the task (`TSK-xx`) that made the change.
 ## [Unreleased]
 
 ### Added
+- Local stack: `docker-compose.yml` with PostgreSQL 16.15, `grafana/otel-lgtm` 0.37.0, Api and Redirect.
+  - Multi-stage Alpine Dockerfiles for all 3 services, running as the non-root `app` user, with health checks.
+  - `.dockerignore` keeping the brief, secrets and build output out of images.
+  - `.env.example`.
+  - Smoke scripts (`scripts/compose-smoke.sh` / `.ps1`).
+  - README "Run locally".
+
+  (TSK-03)
 - Solution skeleton: 10 projects (3 libraries, 3 services, 4 test/benchmark projects).
   - Strict shared build settings: .NET 8, C# 11, warnings as errors, `AnalysisMode=All`, NuGet audit; central package versions; style rules enforced as build errors.
   - Exception-handling middleware returning RFC 7807 responses with a `traceId`.

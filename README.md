@@ -4,8 +4,66 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 **AI-assisted engineering workflow** used to build it. Both are deliverables
 ([ADR-0001](docs/adr/0001-deliverable-scope-product-and-workflow.md)).
 
-> **Current status: design phase.** The requirements, decisions, HLD and LLD are drafted and under engineer
-> review. No code has been written yet. Setup instructions will be added when the code skeleton exists.
+> **Current status: build phase, stage 1.**
+> - The design is complete: requirements, HLD, LLD and 13 accepted ADRs.
+> - The solution skeleton, the shared middleware and health endpoints, and the local Docker stack are in place (TSK-01 to TSK-03).
+> - The URL-shortening features follow from TSK-05; see the [task breakdown](docs/04-task-breakdown.md).
+
+## Run locally
+
+**Prerequisites:**
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) running, with about 2 GB free memory.
+- To build and test outside Docker: the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), version 8.0.424 or a later 8.0 SDK.
+
+**Start the stack** (the services are built from source; the first run takes ~2 min for image downloads and builds):
+
+*Windows (PowerShell):*
+```powershell
+Copy-Item .env.example .env                                         # throwaway local values; .env is git-ignored
+docker compose up -d --build --wait
+powershell -ExecutionPolicy Bypass -File scripts\compose-smoke.ps1  # smoke test
+```
+
+*macOS / Linux / Git Bash:*
+```bash
+cp .env.example .env
+docker compose up -d --build --wait
+bash scripts/compose-smoke.sh
+```
+
+> On Windows, don't run `bash` from PowerShell. It starts WSL's bash (`C:\Windows\system32\bash.exe`), which fails
+> if no Linux distribution is installed. Use the PowerShell script, or open **Git Bash**.
+
+| What | URL |
+|---|---|
+| Api | http://localhost:5080/health/live |
+| Redirect | http://localhost:5081/health/live |
+| Grafana (traces, logs, metrics) | http://localhost:3000. See "Viewing telemetry" below. |
+
+**Viewing telemetry.** Our own dashboards arrive in TSK-22. The bundled "JVM" and "RED Metrics" dashboards
+expect other metric names, so they look empty. Until then, use **Explore** (compass icon) with the time
+range set to *Last 15 minutes*:
+
+| Signal | Data source | Query |
+|---|---|---|
+| Traces | Tempo | Search → Service Name `urlshortener-api` → Run query |
+| Metrics | Prometheus | `sum by (job) (rate(http_server_request_duration_seconds_count[1m]))` |
+| Logs | Loki | `{service_name="urlshortener-api"}` |
+
+**Build and test** (no Docker needed for the current tests):
+```bash
+dotnet build
+dotnet test
+```
+
+**Stop and reset:**
+```bash
+docker compose down        # stop
+docker compose down -v     # stop and delete the local database volume
+```
+
+Everything binds to `127.0.0.1` only. In stage 1 the stack is PostgreSQL, Grafana's `otel-lgtm`, Api and Redirect.
+Kafka and the AnalyticsWorker are added in stage 2.
 
 ## Design at a glance
 
