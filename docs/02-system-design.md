@@ -465,6 +465,81 @@ The Api owns the `links` schema (ADR-0009), so its housekeeping runs **inside th
   - Splitting the table into daily partitions was rejected: uniqueness would only be enforced within a day, so a retry across midnight could create a duplicate.
 - The same pattern is used later for other housekeeping, such as archiving expired links.
 
+### 6.7 Connection routing, timeouts, retries and circuit breakers
+
+#### Connection routing
+The code never inspects database nodes. Each repository method uses one of three **named data sources**
+(`NpgsqlDataSource`), and configuration plus the HA layer decide which node that reaches.
+
+| Data source | Points to | Npgsql safety setting | Used for |
+|---|---|---|---|
+| `LinksPrimary` | **Writer endpoint**, which always points at the current primary (it moves on failover, see HLD §4.1) | `Target Session Attributes=read-write`: refuses a node that is read-only, e.g. an old primary just demoted | Creates, deletes, metadata, ID leases, the redirect fallback |
+| `LinksReplicas` | **Reader endpoint**, or a host list with `Load Balance Hosts=true` | `Target Session Attributes=prefer-standby` | Redirect lookups |
+| `Analytics` | `analytics` writer endpoint | `read-write` | Rollups, offsets, stats |
+
+- **The synchronous standby is never addressed by the application.** It exists only for failover.
+- **Connection strings are never baked into images.** They come from environment variables or the secret store at deployment time, using the per-service database users in §4.4. Locally, all of them point at `Host=postgres`.
+- **Each instance caps its connection pool** (`Max Pool Size`). The number of instances × pool size must stay well below the server's `max_connections`, so a reconnect storm after a failover can't exhaust the database.
+
+#### Timeouts
+Each layer gives up **before** the layer outside it, so the innermost failure produces a clear error.
+
+| Layer | Timeout | On timeout |
+|---|---|---|
+| Client (recommended, create) | 5 s per attempt, up to 3 attempts, exponential backoff + jitter, honour `Retry-After` | Retry with the **same `Idempotency-Key`** |
+| Load balancer / gateway | 10 s | `504` |
+| Api request (ASP.NET Core request-timeout middleware) | 3 s | `503` + `Retry-After` |
+| Api → primary (Npgsql) | Connect 2 s; each command 1 s; `statement_timeout = 2s` on the database user as a server-side guard | Roll back → `503` |
+| Api waiting for an ID lease | ≤ 500 ms (normally 0, because the next lease is pre-fetched) | `503` |
+| Redirect request | 500 ms | `503` |
+| Redirect → read replica | 250 ms per query, then try another replica, or the primary if the fallback budget allows | `503` once the request's budget is used up |
+| Redirect → Kafka | Never blocks. Delivery is retried in the background for up to 30 s (`message.timeout.ms`), then the event is dropped and counted. | No effect on the redirect |
+| Worker → `analytics` | 30 s per batch transaction | Roll back; the offset is not advanced, so the batch is reprocessed |
+| Cleanup batch (§6.6) | 10 s | The next scheduled run tries again |
+
+#### Retries
+**Rule:** retry only when the error is **transient** (connection failure, timeout, deadlock, "database is in recovery"), the circuit breaker is **closed**, and repeating the call **can't change the outcome**.
+
+| Operation | Server-side retry | Why |
+|---|---|---|
+| **Create**, failure **before `COMMIT`** | ✅ Once, ~100 ms with jitter | PostgreSQL has definitely rolled back, so nothing was written |
+| **Create**, failure **during `COMMIT`** (outcome unknown) **with** `Idempotency-Key` | ✅ Once | The retry either finds the committed key and replays it, or creates the link now. No duplicate is possible (ADR-0010). |
+| **Create**, failure during `COMMIT` **without** a key | ❌ Return `503` | A retry could create a second link |
+| **Delete** | ✅ Once | Soft delete is naturally idempotent |
+| Redirect read on a replica | ✅ Once, on another replica | Reads change nothing |
+| Redirect → primary fallback | ❌ | Kept to a single attempt, so scans and outages stay cheap |
+| Kafka send | ✅ Inside the Kafka client | The idempotent producer removes duplicates |
+| Worker batch, ID-lease fetch, cleanup batch | ✅ With backoff | Respectively: offsets make each event count once; a lost lease only leaves a harmless gap; deleting again is a no-op |
+| Any call while the **breaker is open**, or any non-transient error (`4xx`) | ❌ | The dependency is known to be down, or the answer won't change |
+
+The code tells the two create cases apart by **phase**: an exception from `CommitAsync()` means the outcome is unknown; an exception from any earlier statement means a rollback.
+
+#### Circuit breakers (Polly v8, `Microsoft.Extensions.Resilience`)
+- **Where:**
+  - `Api → LinksPrimary`,
+  - `Redirect → LinksPrimary` (fallback only; when this breaker is open, a replica miss returns **`503` + `Retry-After: 1`, not `404`**),
+  - `Worker → Analytics`.
+
+  Read replicas have no Polly breaker, because Npgsql already takes a failed host out of rotation and re-checks it every few seconds.
+- **Settings:** open when **≥ 50% of calls fail** within a **10 s window**, with **at least 20 calls** in that window. Stay open for **5 s ± 1 s (random)**, then allow **one trial call** (half-open). If it succeeds, close; if it fails, open again.
+- **What counts as a failure:** connection errors, timeouts, "database is in recovery". **Not** `409`, `422` or validation errors.
+- **Order of policies:** `Timeout → Retry → Circuit breaker → database`. Every attempt counts towards the breaker, and the retry policy does **not** retry `BrokenCircuitException`.
+- **Per instance**, in memory. There is no shared breaker state, because where would it live when the database is down? A partial failure (one AZ losing its network path) opens only the affected instances. The random break time spreads out the recovery probes, and the capped pools limit reconnect storms.
+- **When a breaker opens, the Npgsql pool is cleared** (`NpgsqlConnection.ClearAllPools()`). The half-open trial therefore opens a **fresh** connection through the writer endpoint, which by then points at the new primary.
+- **An open breaker doesn't make an instance "not ready".** Otherwise every instance would leave the load balancer at once. Instances stay in rotation and return a fast `503`.
+- **Metrics:** breaker state per instance and dependency (`circuit_state`), and open/close events, shown in Grafana (ADR-0013).
+
+#### Cancellation
+The request's `HttpContext.RequestAborted` token is passed down to every database and Kafka call. If the
+client disconnects, the transaction is rolled back. The exception is a `COMMIT` already sent, which the
+idempotency key covers.
+
+#### Failover, from the application's side
+1. Calls to the old primary fail. The breaker opens and returns fast `503`s, and the pool is cleared.
+2. The HA layer promotes the standby and moves the writer endpoint (HLD §4.1).
+3. The half-open trial connects through the endpoint. `read-write` rejects any node that is still demoted.
+4. The trial succeeds, the breaker closes and writes resume. **Redirects kept working on the replicas throughout.**
+
 ## 7. Validation rules
 
 Implemented as separate `IUrlValidationRule` classes so the ambiguous scenario can add more rules (for example threat checks).
@@ -483,9 +558,10 @@ Implemented as separate `IUrlValidationRule` classes so the ambiguous scenario c
 | Key | Example | Notes |
 |---|---|---|
 | `PublicBaseUrl` | `http://localhost:8080` | Used to build `shortUrl` |
-| `ConnectionStrings:LinksPrimary` | `Host=postgres;Database=links;…` | Writes, metadata, ID leases |
-| `ConnectionStrings:LinksReplicas` | `Host=replica1,replica2;Load Balance Hosts=true;…` | Locally this points at the primary |
-| `ConnectionStrings:Analytics` | `Host=postgres;Database=analytics;…` | A separate instance in production |
+| `ConnectionStrings:LinksPrimary` | `Host=links-rw.internal;Database=links;Username=api;Target Session Attributes=read-write;Max Pool Size=50` | Writer endpoint (§6.7). Locally: `Host=postgres`. |
+| `ConnectionStrings:LinksReplicas` | `Host=links-ro.internal;Database=links;Username=redirect;Target Session Attributes=prefer-standby;Load Balance Hosts=true` | Reader endpoint. Locally: `Host=postgres`. |
+| `ConnectionStrings:Analytics` | `Host=analytics-rw.internal;Database=analytics;Username=worker;Target Session Attributes=read-write` | A separate instance in production |
+| `Resilience:*` | Timeouts, retry and breaker settings from §6.7 | One place to tune them |
 | `Redirect:PrimaryFallbackPerSecond` / `MaxReplicaLagSeconds` | `500` / `2` | |
 | `ShortCode:DeploymentRegionIndex` / `LeaseSize` | `0` / `10000` | Set once per regional deployment; instances created by autoscaling inherit it |
 | `ShortCode:FeistelKey` | *(environment / secret store only)* | **Must never change** once in use (ADR-0005) |

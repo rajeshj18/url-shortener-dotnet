@@ -146,6 +146,19 @@ flowchart TB
 - The observability stack runs alongside (ADR-0013).
 - **A full region outage** is a disaster-recovery event: restore into another region (RTO ≤ 4 h, RPO ≤ 15 min).
 
+**Failover: how the writer endpoint moves.** This is the HA layer's job; our code is not involved.
+1. **Detect:** health checks or heartbeats from the primary stop.
+2. **Fence:** the old primary is cut off, so it can't accept writes if it comes back (no "split brain").
+3. **Promote:** the synchronous standby becomes primary. It already has every committed write.
+4. **Move the endpoint:** the writer endpoint is re-pointed to the new primary.
+5. **Re-point replicas:** the async replicas start following the new primary, and a new standby is rebuilt in the background.
+
+How step 4 is done depends on the setup:
+- **Managed service (recommended):** Azure Database for PostgreSQL zone-redundant HA or AWS RDS Multi-AZ update their DNS name, with a short TTL.
+- **Self-managed:** Patroni holds a leader lock in etcd, and the endpoint follows it through HAProxy health checks, a floating virtual IP, or a Kubernetes `-rw` Service (CloudNativePG).
+
+What our services do during failover is described in LLD §6.7.
+
 ### 4.2 Local (prototype)
 `docker compose up` starts:
 - `postgres:16-alpine` (the `links` and `analytics` databases)
@@ -154,7 +167,11 @@ flowchart TB
 - the three .NET services (Redirect, Api, AnalyticsWorker)
 - a one-off `migrate` step that runs the EF Core migration bundles. The services start only after it succeeds.
 
-Optional profiles add a streaming read replica (for the failover demo) and, if ADR-0006 triggers, Valkey.
+Optional profiles add a streaming read replica and, if ADR-0006 triggers, Valkey.
+**There is no automatic failover locally**: it would need Patroni and etcd. The local resilience demo
+stops and restarts the primary to show our side of a failover: fast `503`s while the breaker is open,
+redirects continuing, then writes resuming. Promotion itself is the HA layer's job and is documented
+above, not demonstrated.
 Total memory is about 3 GB (A-40).
 
 ### 4.3 Later release: multi-region
@@ -165,7 +182,7 @@ links tied to a home region on PostgreSQL, Cassandra, or distributed SQL.
 
 | Failure | Behavior | Detection |
 |---|---|---|
-| `links` primary node or availability zone fails | The synchronous standby is promoted in 30–120 s with no data loss. Writes return 503 + `Retry-After`; **redirects keep working** from replicas. | HA manager events; write error rate |
+| `links` primary node or availability zone fails | The synchronous standby is promoted in 30–120 s with no data loss. Each instance's **circuit breaker opens**, so writes fail fast with 503 + `Retry-After`, and **redirects keep working** from replicas. When the writer endpoint has moved, the half-open trial succeeds and writes resume (LLD §6.7). | HA manager events; `circuit_state`; write error rate |
 | A read replica fails | Npgsql's multi-host connection drops it; the other replicas carry the load | Replica health |
 | Replica lag > 2 s | The replica is removed from the read pool (protects the delete SLO) | `replica_lag_seconds` |
 | Kafka broker fails | Replication factor 3 and producer retries mean no loss | Broker metrics |
@@ -194,7 +211,7 @@ Sampling: 100% locally. In production, ~5% based on the parent's decision, plus 
 | Concern | Approach |
 |---|---|
 | Security | API keys for management endpoints; rate limiting (ASP.NET Core rate limiter); URL validation rules (LLD §7); codes that can't be enumerated in order (random guessing limited by rate limits); no IP collection; secrets kept out of the repo (ADR-0011) |
-| Resilience | Polly timeouts and retries with jitter (idempotent calls only), Kafka producer queue as a bounded buffer, graceful shutdown that flushes the producer |
+| Resilience | Layered timeouts, rule-based retries (only for transient errors where repeating can't change the outcome), per-instance circuit breakers with pool clearing on open, cancellation passed down to every call, the Kafka producer queue as a bounded buffer, and graceful shutdown that flushes the producer. Details in **LLD §6.7**. |
 | Configuration | `appsettings.json`, overridden by environment variables; secrets come only from the environment |
 
 ## 8. Engineering workflow (how the system is built)

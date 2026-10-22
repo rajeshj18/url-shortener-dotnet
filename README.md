@@ -55,5 +55,6 @@ revised outputs. See [ADR-0012](docs/adr/0012-engineer-led-workflow-and-sign-off
 - **Single region.** A full region outage means a disaster-recovery restore (RTO ≤ 4 h, RPO ≤ 15 min). Multi-region is planned for a later release.
 - **Storage:** one PostgreSQL node fits about 1.5–2 years of data. After that, Citus is required (ADR-0004).
 - **.NET 8 support ends on 10 Nov 2026.** Upgrading to .NET 10 mostly means changing the target framework.
+- Automatic database failover isn't demonstrated locally (it would need Patroni and etcd). The demo stops and restarts the primary to show the services' side of a failover.
 - Production scale (35K reads/s) can't be reproduced locally. Sizing is extrapolated from measured per-node results.
 - Assumptions are unconfirmed by the requester. See the [assumptions register](docs/assumptions.md).
