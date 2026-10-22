@@ -50,7 +50,10 @@ flowchart LR
 | **Valkey cache** *(conditional)* | Added as a decorator only if the v1 load test fails its criteria (ADR-0006) | Read QPS | Short-lived |
 | **Observability stack** | Traces, metrics, logs and SLO dashboards (ADR-0013) | — | — |
 
-All three hosts share the `Domain`, `Application` and `Infrastructure` libraries (ADR-0009).
+The URL Shortener is **one bounded context deployed as three services**, each with its own container
+image. They share the `Domain`, `Application` and `Infrastructure` libraries. They also share the `links`
+database by design: the Api owns it, and Redirect reads it through the `redirect_lookup` view as a
+read-only user. They are not microservices in the database-per-service sense (ADR-0009).
 
 ## 3. Key flows
 
@@ -147,8 +150,8 @@ flowchart TB
 - `postgres:16-alpine` (the `links` and `analytics` databases)
 - `apache/kafka` (single node, KRaft)
 - `grafana/otel-lgtm`
-- the three .NET hosts
-- a one-off migration step
+- the three .NET services (Redirect, Api, AnalyticsWorker)
+- a one-off `migrate` step that runs the EF Core migration bundles. The services start only after it succeeds.
 
 Optional profiles add a streaming read replica (for the failover demo) and, if ADR-0006 triggers, Valkey.
 Total memory is about 3 GB (A-40).

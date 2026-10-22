@@ -18,7 +18,7 @@ Once an ADR is Accepted, its decision text is never edited. A changed decision g
 | [0006](0006-caching-measure-first.md) | Caching: measure first, add only when load tests justify it | Accepted |
 | [0007](0007-http-302-redirects.md) | HTTP 302 redirects | Accepted |
 | [0008](0008-async-analytics-pipeline.md) | Asynchronous analytics pipeline with Kafka | Accepted |
-| [0009](0009-service-decomposition-and-layering.md) | Three hosts, Clean Architecture layering | Proposed |
+| [0009](0009-service-decomposition-and-layering.md) | Three services of one bounded context, Clean Architecture layering | Accepted |
 | [0010](0010-idempotent-creation.md) | New code for every create; idempotency keys for retries | Proposed |
 | [0011](0011-confidentiality-and-secure-ai-usage.md) | Confidentiality and secure AI usage | Accepted |
 | [0012](0012-engineer-led-workflow-and-sign-off.md) | Engineer-led workflow and risk-based sign-off | Proposed |

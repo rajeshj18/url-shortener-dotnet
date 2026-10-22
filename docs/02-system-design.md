@@ -116,6 +116,10 @@ CREATE TABLE short_urls (
 );
 CREATE INDEX ix_short_urls_expires ON short_urls (expires_at) WHERE expires_at IS NOT NULL;  -- archiving job
 
+-- The read contract for the Redirect service (ADR-0009). Redirect's database user may SELECT from this view only.
+CREATE VIEW redirect_lookup AS
+    SELECT code, long_url, expires_at, deleted_at FROM short_urls;
+
 -- Region blocks owned by THIS deployment region (ADR-0005). v1: one row, B-001, region 0, [0, 440,201,825,776).
 CREATE TABLE id_blocks (
     block_id      varchar(10) PRIMARY KEY,          -- 'B-001', 'B-002', … unique across ALL regions; matches the block registry
@@ -161,7 +165,7 @@ The rollup tables are partitioned **by month** on `bucket_hour`, which keeps the
 ### 4.3 Where each query goes
 | Statement | Target |
 |---|---|
-| Redirect lookup | **Read replicas** (Npgsql multi-host, `Load Balance Hosts=true`). On a miss, one retry on the primary, capped by a token bucket. |
+| Redirect lookup | `redirect_lookup` view on the **read replicas** (Npgsql multi-host, `Load Balance Hosts=true`). On a miss, one retry on the primary, capped by a token bucket. |
 | Create (link, alias, idempotency key) | Primary, one transaction |
 | Delete | Primary |
 | Metadata `GET` | Primary (owner reads should reflect their own writes) |
@@ -172,6 +176,14 @@ The rollup tables are partitioned **by month** on `bucket_hour`, which keeps the
 **Replica health:** a background `ReplicaLagMonitor` checks each replica's lag
 (`now() - pg_last_xact_replay_timestamp()`). Replicas lagging more than 2 s are removed from the read pool.
 This protects the 5 s delete SLO.
+
+### 4.4 Database users (least privilege, ADR-0009)
+| User | Rights |
+|---|---|
+| `migrator` | DDL on `links` and `analytics`. Used only by the migration bundles. |
+| `api` | Read/write data on `links`; `SELECT` on `analytics` |
+| `redirect` | `SELECT` on the `redirect_lookup` view only |
+| `worker` | Read/write data on `analytics` |
 
 ## 5. Code structure
 
@@ -191,6 +203,18 @@ tests/
   UrlShortener.UnitTests/  UrlShortener.IntegrationTests/ (Testcontainers: PostgreSQL, Kafka)
   UrlShortener.ArchitectureTests/  UrlShortener.Benchmarks/ (BenchmarkDotNet)  load/ (k6 scripts)
 ```
+
+**Build outputs:** three container images (`urlshortener-redirect`, `urlshortener-api`, `urlshortener-worker`),
+all tagged with the commit SHA, plus two EF Core **migration bundles** (`efbundle-links`, `efbundle-analytics`)
+built from the Infrastructure migrations. The bundles run once per deployment, before any service rolls out.
+Services never migrate at startup (ADR-0009).
+
+**Project dependencies** (enforced by `UrlShortener.ArchitectureTests`):
+- Domain → nothing.
+- Application → Domain.
+- Infrastructure → Application and Domain.
+- Services → all three libraries, never each other.
+- Controllers depend on Application interfaces only.
 
 ### Core types
 ```mermaid

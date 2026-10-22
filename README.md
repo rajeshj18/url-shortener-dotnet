@@ -21,7 +21,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 | Redirects | 302, with 404 for unknown codes and 410 for deleted or expired ones ([ADR-0007](docs/adr/0007-http-302-redirects.md)) |
 | Analytics | Kafka → worker → rollups; each event counted exactly once ([ADR-0008](docs/adr/0008-async-analytics-pipeline.md)) |
 | Observability | OpenTelemetry → Grafana (Prometheus, Tempo, Loki) ([ADR-0013](docs/adr/0013-observability-opentelemetry-grafana.md)) |
-| Services | Redirect, Api and AnalyticsWorker on shared Clean Architecture layers ([ADR-0009](docs/adr/0009-service-decomposition-and-layering.md)) |
+| Services | One bounded context deployed as three services (Redirect, Api, AnalyticsWorker), each with its own image, on shared Clean Architecture layers ([ADR-0009](docs/adr/0009-service-decomposition-and-layering.md)) |
 | Platform | .NET 8, C# 11, classic object-oriented style ([ADR-0003](docs/adr/0003-platform-dotnet8-csharp11.md)) |
 | Local stack | `postgres:16-alpine`, `apache/kafka`, `grafana/otel-lgtm` (all open source, ~3 GB RAM) |
 
@@ -31,7 +31,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 |---|---|---|
 | [docs/03-architecture.md](docs/03-architecture.md) | **HLD**: components, flows, deployment, failure modes, observability, engineering workflow | Draft |
 | [docs/02-system-design.md](docs/02-system-design.md) | **Capacity, SLO/SLA and LLD**: API contract, SQL schema, classes, algorithms, validation, configuration | Draft |
-| [docs/adr/](docs/adr/README.md) | 13 architecture decision records | 10 Accepted, 3 Proposed |
+| [docs/adr/](docs/adr/README.md) | 13 architecture decision records | 11 Accepted, 2 Proposed |
 | [docs/assumptions.md](docs/assumptions.md) | Assumptions register (we proceeded without external clarification) | Living document |
 | [docs/scenarios/](docs/scenarios/README.md) | Greenfield, brownfield and ambiguous scenarios | Planned |
 | [docs/ai-usage/traceability-log.md](docs/ai-usage/traceability-log.md) | What the AI produced and whether it was accepted, edited or rejected | Living document |
