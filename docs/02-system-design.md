@@ -70,7 +70,7 @@ and committed.
 
 | Method & path | Purpose | Success | Errors |
 |---|---|---|---|
-| `POST /api/v1/urls` | Create a short link | `201` + `Location` | `400` validation · `401` · `409` alias taken · `422` idempotency-key mismatch · `429` · `503` + `Retry-After` during primary failover |
+| `POST /api/v1/urls` | Create a short link | `201` + `Location`. A replay returns the original `201` body plus `Idempotent-Replayed: true`. | `400` validation (including a malformed `Idempotency-Key`) · `401` · `409` alias taken · `422` idempotency key reused for a different request · `429` · `503` + `Retry-After` during primary failover |
 | `GET /{code}`, `HEAD /{code}` | Redirect | `302` + `Location`, `Cache-Control: no-store` | `404` unknown (`no-store`) · `410` deleted/expired (`public, max-age=86400`) · `429` (ADR-0007) |
 | `GET /api/v1/urls/{code}` | Metadata (owner only) | `200` | `401` · `404` (also returned to non-owners, so we don't reveal that the link exists) |
 | `DELETE /api/v1/urls/{code}` | Soft delete (owner only) | `204` (idempotent: deleting again also returns 204) | `401` · `404` · `503` during failover |
@@ -136,11 +136,12 @@ CREATE UNIQUE INDEX ux_id_blocks_one_active ON id_blocks (region_index) WHERE st
 CREATE TABLE idempotency_keys (
     owner_id       varchar(64)  NOT NULL,
     idem_key       varchar(128) NOT NULL,
-    request_hash   char(64)     NOT NULL,           -- SHA-256 of the normalized request body
-    response_body  jsonb        NOT NULL,
-    created_at     timestamptz  NOT NULL,
+    request_hash   char(64)     NOT NULL,           -- SHA-256 of the normalized request (§6.1)
+    response_body  jsonb        NULL,               -- the 201 body; set in the same transaction, so never NULL once committed
+    created_at     timestamptz  NOT NULL,           -- start of the 24 h window
     PRIMARY KEY (owner_id, idem_key)
-);                                                  -- a cleanup job deletes rows older than 24 h
+);
+CREATE INDEX ix_idempotency_keys_created ON idempotency_keys (created_at);  -- used by the cleanup job (§6.6)
 ```
 
 ### 4.2 `analytics` database
@@ -300,14 +301,60 @@ event is counted as dropped.
 ### 6.1 Create
 1. Authenticate the API key and set `ownerId`. Apply the create rate limit.
 2. Validate `longUrl` (§7) and the alias if present. Reject `expiresAt` values that aren't in the future.
+   If an `Idempotency-Key` header is present, it must be 1–128 printable ASCII characters (a UUID is recommended); otherwise `400`.
+   Compute `request_hash = SHA-256(normalized request)`. The normalized request is the text
+   `longUrl=<as sent>\ncustomAlias=<or empty>\nexpiresAt=<UTC ISO-8601 to the second, or empty>`, so
+   whitespace, field order and time-zone notation don't change the hash. The URL itself is never altered.
 3. **Begin a transaction on the primary.**
 4. If an `Idempotency-Key` is present, call `TryBeginAsync` (`INSERT … ON CONFLICT DO NOTHING`):
-   - existing key with the same hash → return the stored response,
-   - existing key with a different hash → `422`.
+   - no existing key → continue,
+   - existing key **older than 24 h** (by `created_at`) → treat it as absent: overwrite the row and continue,
+   - existing key with the same hash → roll back and return the stored `201` body with the header `Idempotent-Replayed: true`,
+   - existing key with a different hash → roll back and return `422`.
+
+   **Only successful creates are stored.** A `409` or `503` rolls the transaction back, so the key row disappears and a retry runs again from the start. A concurrent duplicate request waits on the primary key until the first transaction commits or rolls back.
 5. **Alias:** `TryInsertAsync`. If `false`, return `409`.
    **Generated:** `NextAsync`, then `TryInsertAsync`. A conflict here can't happen in normal operation: generated codes are unique, and aliases never have the generated shape (§7). If it does happen, treat it as a defect: log an error, raise an alert, and retry with the next ID.
 6. Save the response with `CompleteAsync`, **commit**, return `201`.
 7. If the primary is unavailable (during failover), return `503` with `Retry-After: 5`.
+
+#### Idempotency flow, end to end (ADR-0010)
+Table used: `idempotency_keys (owner_id, idem_key, request_hash, response_body, created_at)`, with primary key `(owner_id, idem_key)` (§4.1).
+
+```
+POST /api/v1/urls   X-Api-Key: …   Idempotency-Key: K1
+ 1. Authenticate the API key              → owner_id = "client-42"
+ 2. Validate the body and the key format  → error: 400 (nothing stored)
+ 3. request_hash = SHA-256(normalized longUrl | customAlias | expiresAt)
+ 4. BEGIN (primary)
+ 5. INSERT INTO idempotency_keys (owner_id, idem_key, request_hash, created_at)
+        VALUES ('client-42', 'K1', <hash>, now())
+    ON CONFLICT DO NOTHING
+        │
+        ├─ 1 row inserted → NEW request
+        │      6. lease → Feistel → Base62 → INSERT INTO short_urls
+        │      7. UPDATE idempotency_keys SET response_body = <201 body>
+        │      8. COMMIT → 201 Created
+        │
+        └─ 0 rows (key exists) → read the stored row:
+               ├─ created_at older than 24 h → treat as absent: overwrite the row, continue at step 6
+               ├─ hash differs               → ROLLBACK → 422 (key reused for a different request)
+               └─ hash matches               → ROLLBACK → stored 201 body + Idempotent-Replayed: true
+
+ Failure at step 6 or 7 (409 alias taken, 503 failover) → ROLLBACK → the key row disappears too,
+ so a retry starts again from the beginning.
+```
+
+| Situation | Outcome |
+|---|---|
+| Retry after a timeout, where the **commit succeeded** but the response was lost | Step 5 finds K1 and the hash matches, so **the same link is returned** and no duplicate is created |
+| **Two identical requests at the same moment** | The second `INSERT` waits on the primary key until the first finishes, then returns the stored response |
+| Retry after a timeout, where the **commit failed** | Nothing was stored, so step 5 inserts afresh and the link is created now |
+| Same key reused by **another client** | Separate row (keys are scoped by `owner_id`), so no interference |
+| Same key reused for a **different request** by the same client | Hash mismatch, so `422` and never the wrong link |
+| Retry **after 24 h** | Key treated as absent, so a **new** link is created (A-23) |
+
+Expired keys are deleted by the cleanup task in §6.6. Because of the 24 h check in step 5, the result doesn't depend on when that task runs.
 
 ### 6.2 Resolve (redirect)
 1. Check the code's shape (7 Base62 characters, or a valid alias shape). Malformed → `404` without touching the database.
@@ -407,6 +454,16 @@ still map to the same code.
      - commit.
   4. Committing offsets back to Kafka is informational only. **The database is the source of truth**, so each event is counted exactly once.
 - **Hot code:** a viral link fills one partition (~7 MB/s at worst, within one partition's capacity). Aggregating per batch keeps database writes at about one upsert per code per batch.
+
+### 6.6 Housekeeping jobs (inside the Api service)
+The Api owns the `links` schema (ADR-0009), so its housekeeping runs **inside the Api** as a
+`BackgroundService`, not as a separate service.
+- **Only one instance runs each job at a time.** Each instance tries `pg_try_advisory_lock(<job key>)` on each run; only the instance that gets the lock does the work, and the others skip that run. If that instance dies, the lock is released automatically.
+- **Idempotency-key cleanup:** every 5 minutes, delete rows where `created_at < now() - interval '24 hours'`, in batches of up to 50K rows (using `ix_idempotency_keys_created`).
+  - Autovacuum is tuned for this table, because up to ~100M rows a day are deleted.
+  - Metrics: rows deleted, run duration, table size and bloat.
+  - Splitting the table into daily partitions was rejected: uniqueness would only be enforced within a day, so a retry across midnight could create a duplicate.
+- The same pattern is used later for other housekeeping, such as archiving expired links.
 
 ## 7. Validation rules
 

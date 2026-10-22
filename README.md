@@ -31,7 +31,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 |---|---|---|
 | [docs/03-architecture.md](docs/03-architecture.md) | **HLD**: components, flows, deployment, failure modes, observability, engineering workflow | Draft |
 | [docs/02-system-design.md](docs/02-system-design.md) | **Capacity, SLO/SLA and LLD**: API contract, SQL schema, classes, algorithms, validation, configuration | Draft |
-| [docs/adr/](docs/adr/README.md) | 13 architecture decision records | 11 Accepted, 2 Proposed |
+| [docs/adr/](docs/adr/README.md) | 13 architecture decision records | 12 Accepted, 1 Proposed |
 | [docs/assumptions.md](docs/assumptions.md) | Assumptions register (we proceeded without external clarification) | Living document |
 | [docs/scenarios/](docs/scenarios/README.md) | Greenfield, brownfield and ambiguous scenarios | Planned |
 | [docs/ai-usage/traceability-log.md](docs/ai-usage/traceability-log.md) | What the AI produced and whether it was accepted, edited or rejected | Living document |

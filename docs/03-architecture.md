@@ -76,6 +76,7 @@ sequenceDiagram
     A->>P: store response, COMMIT
     A-->>C: 201 Created {code, shortUrl}
 ```
+**Idempotency (ADR-0010):** a retry with the same key and request gets the original `201` back (`Idempotent-Replayed: true`). The same key with a different request gets `422`. Keys are remembered for 24 h, and a background task in the Api removes expired ones.
 **Custom alias:** same flow, but the code is the alias. A conflict → **409**.
 **Primary failing over:** **503** with `Retry-After`.
 

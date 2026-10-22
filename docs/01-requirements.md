@@ -25,7 +25,7 @@ The service is to be built with an engineer-led, AI-assisted workflow that is it
 | FR-05 | **Delete:** the owner can delete a link (soft delete; returns `410` afterwards) | A-25 |
 | FR-06 | **Metadata:** the owner can retrieve a link's details | A-24 |
 | FR-07 | **Analytics:** the owner can see total clicks, an hourly/daily time series, top referrer hosts and device class | A-31, ADR-0008 |
-| FR-08 | **Safe retries:** a create sent with the same `Idempotency-Key` returns the original result instead of creating a duplicate | ADR-0010 |
+| FR-08 | **Safe retries:** a create sent again with the same `Idempotency-Key` **within 24 h** returns the original result instead of creating a duplicate; reusing the key for a different request returns `422` | ADR-0010, LLD §6.1 |
 | FR-09 | **Authentication and ownership:** management endpoints need an API key; only the owner can view stats, read metadata or delete | A-24 |
 | FR-10 | **URL validation:** only absolute `http`/`https` URLs up to 2,048 characters; no embedded credentials; no links back to our own domain | A-20, LLD §7 |
 
