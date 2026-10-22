@@ -15,12 +15,24 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) running, with about 2 GB free memory.
 - To build and test outside Docker: the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), version 8.0.424 or a later 8.0 SDK.
 
-**Start the stack** (the services are built from source):
-```bash
-cp .env.example .env                    # throwaway local values; .env is git-ignored
-docker compose up -d --build --wait     # first run takes ~2 min (image downloads + build)
-bash scripts/compose-smoke.sh           # or: pwsh scripts/compose-smoke.ps1
+**Start the stack** (the services are built from source; the first run takes ~2 min for image downloads and builds):
+
+*Windows (PowerShell):*
+```powershell
+Copy-Item .env.example .env                                         # throwaway local values; .env is git-ignored
+docker compose up -d --build --wait
+powershell -ExecutionPolicy Bypass -File scripts\compose-smoke.ps1  # smoke test
 ```
+
+*macOS / Linux / Git Bash:*
+```bash
+cp .env.example .env
+docker compose up -d --build --wait
+bash scripts/compose-smoke.sh
+```
+
+> On Windows, don't run `bash` from PowerShell. It starts WSL's bash (`C:\Windows\system32\bash.exe`), which fails
+> if no Linux distribution is installed. Use the PowerShell script, or open **Git Bash**.
 
 | What | URL |
 |---|---|
