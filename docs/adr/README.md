@@ -21,7 +21,7 @@ Once an ADR is Accepted, its decision text is never edited. A changed decision g
 | [0009](0009-service-decomposition-and-layering.md) | Three services of one bounded context, Clean Architecture layering | Accepted |
 | [0010](0010-idempotent-creation.md) | New code for every create; idempotency keys for retries | Accepted |
 | [0011](0011-confidentiality-and-secure-ai-usage.md) | Confidentiality and secure AI usage | Accepted |
-| [0012](0012-engineer-led-workflow-and-sign-off.md) | Engineer-led workflow and risk-based sign-off | Proposed |
+| [0012](0012-engineer-led-workflow-and-sign-off.md) | Engineer-led workflow, risk-based sign-off, quality gates and when they run | Accepted |
 | [0013](0013-observability-opentelemetry-grafana.md) | Observability with OpenTelemetry and the Grafana stack | Accepted |
 
 Template: **Status · Date · Related** → Context → Decision → Alternatives considered → Consequences → **History**.

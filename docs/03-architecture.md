@@ -220,7 +220,7 @@ Sampling: 100% locally. In production, ~5% based on the parent's decision, plus 
 flowchart LR
     req["Requirement / ask"] --> spec["Task spec<br/>intent · constraints ·<br/>acceptance criteria · context"]
     spec --> ai["AI-assisted work<br/>(Claude Code + CLAUDE.md<br/>+ prompt library)"]
-    ai --> gates["CI quality gates<br/>build · analyzers · lint · tests ·<br/>security scan · perf smoke"]
+    ai --> gates["CI quality gates<br/>build · analyzers · tests ·<br/>SAST · secrets · SCA · Trivy ·<br/>ZAP baseline · perf smoke"]
     gates -->|fail| ai
     gates --> review["Engineer review<br/>risk-based checklist"]
     review -->|changes| ai
@@ -233,7 +233,14 @@ flowchart LR
 | Decisions | `docs/adr/` |
 | Assumptions | `docs/assumptions.md` |
 | Traceability log | `docs/ai-usage/traceability-log.md` |
-| Task specs, prompt library, `CLAUDE.md`, PR template, CI | *To be created in the workflow setup phase* |
+| Task-spec template and specs | `docs/templates/task-spec.md`, `docs/tasks/TSK-xx-*.md` *(created in the workflow setup phase)* |
+| Prompt library, `CLAUDE.md`, PR template (`.github/pull_request_template.md`), CI (`.github/workflows/`), branch protection | *Created in the workflow setup phase* |
+
+**Two phases (ADR-0012):**
+- **Design:** direct commits to `main`, with each ADR accepted in an engineer-authored commit.
+- **Build:** one task per branch and PR, merged by the engineer with a merge commit. Branch protection blocks direct pushes and requires every quality gate.
+
+The quality gates (tests, SAST, secret and dependency scanning, container scanning, DAST, performance smoke) and **when each runs** are defined in ADR-0012 §5.
 
 ## 9. Alternate design (consistency first)
 
