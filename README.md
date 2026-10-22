@@ -50,6 +50,15 @@ revised outputs. See [ADR-0012](docs/adr/0012-engineer-led-workflow-and-sign-off
 
 **AI tool:** Claude Code (Claude Opus 5.5).
 
+**Workflow files:**
+- [CLAUDE.md](CLAUDE.md): the project rules given to the AI
+- [docs/ai-usage/prompts/](docs/ai-usage/prompts/README.md): the versioned prompt library
+- [docs/templates/task-spec.md](docs/templates/task-spec.md) and [docs/tasks/](docs/tasks/): task specs
+- [.github/pull_request_template.md](.github/pull_request_template.md): the PR checklist
+- [CHANGELOG.md](CHANGELOG.md): change history
+
+License: [MIT](LICENSE).
+
 ## Known limitations (so far)
 
 - **Single region.** A full region outage means a disaster-recovery restore (RTO ≤ 4 h, RPO ≤ 15 min). Multi-region is planned for a later release.
