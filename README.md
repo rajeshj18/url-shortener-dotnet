@@ -36,7 +36,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 | [docs/scenarios/](docs/scenarios/README.md) | Greenfield, brownfield and ambiguous scenarios | Planned |
 | [docs/ai-usage/traceability-log.md](docs/ai-usage/traceability-log.md) | What the AI produced and whether it was accepted, edited or rejected | Living document |
 | [docs/01-requirements.md](docs/01-requirements.md) | Problem statement, functional (FR) and non-functional (NFR) requirements, out of scope | Draft (traceability matrix to follow) |
-| `docs/04-task-breakdown.md` | Task breakdown, dependencies, critical path | Planned |
+| [docs/04-task-breakdown.md](docs/04-task-breakdown.md) | Staged plan (core → lean → full), definition of done incl. test-metrics gate, tasks, critical path, estimates | Approved |
 | `docs/05-testing-strategy.md`, `docs/06-risks-tradeoffs.md`, `docs/08-final-summary.md` | Testing, risks and summary | Planned |
 
 **Suggested reading order for reviewers:** this README → requirements → HLD → ADR index → LLD → assumptions → scenarios → traceability log.
