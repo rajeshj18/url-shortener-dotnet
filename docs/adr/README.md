@@ -16,7 +16,7 @@ Once an ADR is Accepted, its decision text is never edited. A changed decision g
 | [0004](0004-data-store-postgresql.md) | PostgreSQL for v1; Citus when thresholds are reached; multi-region in a later release | Accepted |
 | [0005](0005-short-code-generation.md) | Short codes: range lease + Feistel permutation + Base62 | Accepted |
 | [0006](0006-caching-measure-first.md) | Caching: measure first, add only when load tests justify it | Accepted |
-| [0007](0007-http-302-redirects.md) | HTTP 302 redirects | Proposed |
+| [0007](0007-http-302-redirects.md) | HTTP 302 redirects | Accepted |
 | [0008](0008-async-analytics-pipeline.md) | Asynchronous analytics pipeline with Kafka | Accepted |
 | [0009](0009-service-decomposition-and-layering.md) | Three hosts, Clean Architecture layering | Proposed |
 | [0010](0010-idempotent-creation.md) | New code for every create; idempotency keys for retries | Proposed |

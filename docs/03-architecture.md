@@ -95,10 +95,11 @@ sequenceDiagram
     else deleted or expired
         R-->>B: 410 Gone
     else active
-        R--)K: Produce ClickEvent (non-blocking)
-        R-->>B: 302 Location: longUrl
+        R--)K: Produce ClickEvent (non-blocking; GET from non-bots only)
+        R-->>B: 302 Location: longUrl (Cache-Control: no-store)
     end
 ```
+Caching headers per status, and handling of `HEAD` and link-preview requests, are defined in ADR-0007.
 
 ### 3.3 Delete
 `DELETE /api/v1/urls/{code}` → owner check on the primary → `UPDATE … SET deleted_at` → 204. Replicas

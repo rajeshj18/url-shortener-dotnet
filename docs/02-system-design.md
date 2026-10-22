@@ -71,7 +71,7 @@ and committed.
 | Method & path | Purpose | Success | Errors |
 |---|---|---|---|
 | `POST /api/v1/urls` | Create a short link | `201` + `Location` | `400` validation · `401` · `409` alias taken · `422` idempotency-key mismatch · `429` · `503` + `Retry-After` during primary failover |
-| `GET /{code}` | Redirect | `302` + `Location`, `Cache-Control: private, max-age=0` | `404` unknown · `410` deleted/expired · `429` |
+| `GET /{code}`, `HEAD /{code}` | Redirect | `302` + `Location`, `Cache-Control: no-store` | `404` unknown (`no-store`) · `410` deleted/expired (`public, max-age=86400`) · `429` (ADR-0007) |
 | `GET /api/v1/urls/{code}` | Metadata (owner only) | `200` | `401` · `404` (also returned to non-owners, so we don't reveal that the link exists) |
 | `DELETE /api/v1/urls/{code}` | Soft delete (owner only) | `204` (idempotent: deleting again also returns 204) | `401` · `404` · `503` during failover |
 | `GET /api/v1/urls/{code}/stats?from=&to=&granularity=hour\|day` | Analytics (owner only) | `200` | `400` range > 90 days · `401` · `404` |
@@ -289,9 +289,9 @@ event is counted as dropped.
 1. Check the code's shape (7 Base62 characters, or a valid alias shape). Malformed → `404` without touching the database.
 2. `FindForRedirectAsync` on a replica. If not found and the token bucket allows it, `FindOnPrimaryAsync` (read-your-writes).
 3. `GetState(now)`:
-   - `NotFound` → `404`
-   - `Deleted` or `Expired` → `410`
-   - `Active` → `TryPublish(ClickEvent)` → `302`
+   - `NotFound` → `404` (`Cache-Control: no-store`)
+   - `Deleted` or `Expired` → `410` (`Cache-Control: public, max-age=86400`)
+   - `Active` → `302` (`Cache-Control: no-store`). `TryPublish(ClickEvent)` is called only for `GET` requests from non-bot clients. `HEAD` requests and link-preview bots get the same response but no click event (ADR-0007).
 
 ### 6.3 Delete
 Check ownership on the primary (return `404` if it isn't the owner's link) → `MarkDeletedAsync` → `204`.
