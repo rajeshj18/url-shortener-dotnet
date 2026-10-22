@@ -233,8 +233,12 @@ flowchart LR
 | Decisions | `docs/adr/` |
 | Assumptions | `docs/assumptions.md` |
 | Traceability log | `docs/ai-usage/traceability-log.md` |
-| Task-spec template and specs | `docs/templates/task-spec.md`, `docs/tasks/TSK-xx-*.md` *(created in the workflow setup phase)* |
-| Prompt library, `CLAUDE.md`, PR template (`.github/pull_request_template.md`), CI (`.github/workflows/`), branch protection | *Created in the workflow setup phase* |
+| Task-spec template and specs | `docs/templates/task-spec.md`, `docs/tasks/TSK-xx-*.md` |
+| AI project context | `CLAUDE.md` |
+| Prompt library (versioned, with revision logs) | `docs/ai-usage/prompts/` |
+| PR template (ADR-0012 checklist), code owners | `.github/pull_request_template.md`, `.github/CODEOWNERS` |
+| Change history | `CHANGELOG.md` |
+| CI (`.github/workflows/`), branch protection | *TSK-04* |
 
 **Two phases (ADR-0012):**
 - **Design:** direct commits to `main`, with each ADR accepted in an engineer-authored commit.

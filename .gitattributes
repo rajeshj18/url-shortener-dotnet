@@ -1,0 +1,16 @@
+# Consistent line endings across platforms: LF in the repository and working tree
+* text=auto eol=lf
+
+# Windows scripts keep CRLF
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.pfx binary
+*.pdf binary
