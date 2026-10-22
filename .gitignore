@@ -1,0 +1,29 @@
+# Confidential: the assignment brief is never committed (ADR-0011)
+*.pdf
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pfx
+*.key
+
+# Python tooling (not part of the project)
+.venv/
+__pycache__/
+
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+coverage*/
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+Thumbs.db
+.DS_Store
