@@ -153,7 +153,7 @@ Optional profiles add a streaming read replica (for the failover demo) and, if A
 Total memory is about 3 GB (A-40).
 
 ### 4.3 Later release: multi-region
-Each region keeps its own block of the ID space (ADR-0005). The options are analysed in ADR-0004:
+Each region keeps its own blocks of the ID space (ADR-0005). Custom aliases will also need a single global registry, because each region's primary key only checks its own database. The options are analysed in ADR-0004:
 links tied to a home region on PostgreSQL, Cassandra, or distributed SQL.
 
 ## 5. Failure modes
@@ -167,7 +167,8 @@ links tied to a home region on PostgreSQL, Cassandra, or distributed SQL.
 | Kafka unavailable | The producer's local queue fills, then events are dropped and counted. **Redirects keep working.** | `clicks_dropped_total` |
 | Worker down | Events wait in Kafka. The worker resumes from its stored offset. Stats freshness alert fires. | Consumer lag; freshness |
 | `analytics` database down | The worker pauses (offsets aren't advanced); stats return 503; Kafka keeps events for 30 days | Worker errors |
-| ID lease unavailable | The node keeps using its remaining lease. Creation fails only once the lease runs out. | Lease-remaining gauge |
+| A lease can't be fetched (primary unreachable) | Creates are failing with 503 anyway, because inserts also need the primary. When the primary is back, background lease refills resume and cold instances stay "not ready" until they have a lease. | Lease-remaining gauge; readiness |
+| Region block running out | An alert fires at 80% usage. The operator assigns a reserved block (LLD §6.4 runbook), and instances switch to it automatically when the active block is used up. | `id_block_used_ratio` |
 | Hot key (viral link) | The row stays in memory on every replica; load spreads across all of them. Measured by the load test (ADR-0006). | Per-endpoint p99 |
 | Scan of non-existent codes | The format check rejects junk; the primary fallback is capped by a token bucket; rate limiting applies | 404 rate; fallback-cap hits |
 | Region outage | Full outage; disaster-recovery restore (RTO ≤ 4 h) | External probes |
@@ -177,7 +178,7 @@ links tied to a home region on PostgreSQL, Cassandra, or distributed SQL.
 | Signal | How it's produced | Where to look |
 |---|---|---|
 | **Traces** | OpenTelemetry: ASP.NET Core, Npgsql, EF Core, HttpClient. `traceparent` is carried in Kafka headers, and worker spans link to the redirect spans. | Grafana → Tempo |
-| **Metrics** | Rate, errors and duration per endpoint, plus: replica lag, delete propagation, consumer lag, dropped clicks, stats freshness, lease remaining | Grafana → Prometheus |
+| **Metrics** | Rate, errors and duration per endpoint, plus: replica lag, delete propagation, consumer lag, dropped clicks, stats freshness, lease remaining, region block usage (`id_block_used_ratio`) | Grafana → Prometheus |
 | **Logs** | `ILogger` → OpenTelemetry, JSON with `traceId`/`spanId`. No full URLs, IPs or API keys. | Grafana → Loki |
 | **SLOs** | Dashboards and burn-rate alerts kept in the repo as code | Grafana |
 
@@ -187,7 +188,7 @@ Sampling: 100% locally. In production, ~5% based on the parent's decision, plus 
 
 | Concern | Approach |
 |---|---|
-| Security | API keys for management endpoints; rate limiting (ASP.NET Core rate limiter); URL validation rules (LLD §7); unguessable codes; no IP collection; secrets kept out of the repo (ADR-0011) |
+| Security | API keys for management endpoints; rate limiting (ASP.NET Core rate limiter); URL validation rules (LLD §7); codes that can't be enumerated in order (random guessing limited by rate limits); no IP collection; secrets kept out of the repo (ADR-0011) |
 | Resilience | Polly timeouts and retries with jitter (idempotent calls only), Kafka producer queue as a bounded buffer, graceful shutdown that flushes the producer |
 | Configuration | `appsettings.json`, overridden by environment variables; secrets come only from the environment |
 

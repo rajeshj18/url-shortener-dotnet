@@ -6,7 +6,7 @@
 
 ## 1. Problem statement
 
-Build a URL-shortening service that turns long URLs into short, unguessable codes and redirects visitors
+Build a URL-shortening service that turns long URLs into short codes that can't be enumerated in order, and redirects visitors
 to the original URL. It must also give link owners click analytics.
 
 The service must handle **100M new links per day and 10× as many redirects**. Redirects must be fast and
@@ -19,7 +19,7 @@ The service is to be built with an engineer-led, AI-assisted workflow that is it
 | ID | Requirement | Notes |
 |---|---|---|
 | FR-01 | **Shorten:** create a short link for a valid long URL and return the code and short URL | A-20, A-21 |
-| FR-02 | **Custom alias:** optionally use a caller-chosen alias. Return `409` if it is taken. | A-21 |
+| FR-02 | **Custom alias:** optionally use a caller-chosen alias. Return `409` if it is taken, and `400` if it has the shape reserved for generated codes (exactly 7 Base62 characters). | A-21, ADR-0005 |
 | FR-03 | **Redirect:** `GET /{code}` returns `302` to the long URL; `404` if unknown; `410` if deleted or expired | ADR-0007 |
 | FR-04 | **Expiry:** optionally set an expiry time. Expired links return `410`. | A-22 |
 | FR-05 | **Delete:** the owner can delete a link (soft delete; returns `410` afterwards) | A-25 |
@@ -41,7 +41,7 @@ The service is to be built with an engineer-led, AI-assisted workflow that is it
 | NFR-06 | Consistency | Deletes and expiries take effect quickly everywhere | 99% within 5 s (SLO); all within 60 s (SLA) | Delete propagation metric; integration test |
 | NFR-07 | Consistency | Read-your-writes for new links | A newly created link redirects immediately | Integration test (create, then redirect at once) |
 | NFR-08 | Analytics freshness and accuracy | Stats are up to date and each click is counted once | Stats lag p99 ≤ 60 s; ≥ 99.9% of clicks captured; each event counted exactly once | Worker integration test with replayed events; freshness metric |
-| NFR-09 | Security | Codes can't be guessed or enumerated; abuse is limited | Keyed permutation; rate limits; validation rules | Unit tests; ambiguous scenario |
+| NFR-09 | Security | Codes can't be **enumerated in order**, and **random guessing** is limited. A random 7-character guess hits a real link with probability equal to the share of the code space in use (~1% after 1 year, ~5% after 5 years), so short codes aren't secrets. | Keyed permutation; per-client rate limits and abuse detection on redirect misses; validation rules | Unit tests; ambiguous scenario |
 | NFR-10 | Privacy | Collect as little personal data as possible | No IP addresses or full User-Agents stored; no personal data in logs | Code review; log checks |
 | NFR-11 | Observability | Every request can be traced from start to finish; SLOs are measured | Traces across HTTP and Kafka; SLO dashboards and burn-rate alerts | ADR-0013; dashboards in the repo |
 | NFR-12 | Maintainability | Modular, testable code | Clean Architecture enforced by architecture tests; analyzers with warnings as errors | CI quality gates |

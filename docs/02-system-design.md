@@ -24,7 +24,8 @@ Target: **100M new URLs/day** and a **10:1 read:write ratio** (A-10, A-11), in a
 | Read QPS, average / peak (×3) | 1B ÷ 86,400 s | **~11,600 / ~35,000** |
 | Record size | code, URL, metadata, index overhead | ~500 B (conservative) |
 | Links storage | 100M × 500 B = 50 GB/day | **~18 TB/year, ~91 TB over 5 years** |
-| Key space | 62⁷ ≈ 3.5T vs 182.5B needed | ~96 years of headroom at 7 chars |
+| Key space | 62⁷ ≈ 3.5T vs 182.5B needed | ~96 years of headroom at 7 chars; **v1 block B-001 alone covers ~12 years** |
+| Random-guess hit rate | Share of the code space in use | ~1% after 1 year, ~5% after 5 years (NFR-09). Rate limiting is the mitigation. |
 | Click events | 1B × ~200 B (JSON) | ~200 GB/day in Kafka; 30-day retention ≈ 6 TB (× replication factor) |
 | Rollup writes | One upsert per (code, hour, dimension) per worker batch | Far fewer than clicks, thanks to per-batch aggregation |
 | Bandwidth | 1,160 × 500 B in; 11,600 × 500 B out | ~0.6 MB/s in; ~6 MB/s out (~17 MB/s at peak) |
@@ -125,6 +126,8 @@ CREATE TABLE id_blocks (
     status        varchar(10) NOT NULL,             -- 'active' | 'reserved' | 'exhausted'
     CHECK (range_start <= next_id AND next_id <= range_end)
 );
+-- At most one active block per region, so the lease statement never has to choose between blocks
+CREATE UNIQUE INDEX ux_id_blocks_one_active ON id_blocks (region_index) WHERE status = 'active';
 
 CREATE TABLE idempotency_keys (
     owner_id       varchar(64)  NOT NULL,
@@ -278,7 +281,7 @@ event is counted as dropped.
    - existing key with the same hash → return the stored response,
    - existing key with a different hash → `422`.
 5. **Alias:** `TryInsertAsync`. If `false`, return `409`.
-   **Generated:** `NextAsync`, then `TryInsertAsync`. If `false` (the string matched an existing alias), take the next ID and try again.
+   **Generated:** `NextAsync`, then `TryInsertAsync`. A conflict here can't happen in normal operation: generated codes are unique, and aliases never have the generated shape (§7). If it does happen, treat it as a defect: log an error, raise an alert, and retry with the next ID.
 6. Save the response with `CompleteAsync`, **commit**, return `201`.
 7. If the primary is unavailable (during failover), return `503` with `Retry-After: 5`.
 
@@ -303,16 +306,19 @@ Calling it again on an already-deleted link returns `204`. If a cache exists, pu
   | Region block | v1: 440,201,825,776 (~12 years at 100M/day) | **Operator** (registry + database row) | When a region is set up; then when the 80% alert fires |
   | Lease | 10,000 | **Each Api instance**, automatically | At 50% use of the current lease (about every 30 s per instance at peak) |
 
-- **Lease statement:**
+- **Lease statement.** There is only ever one active block per region (partial unique index), so the capacity check sits in the same `WHERE` as the update. That makes it safe when several instances lease at once: PostgreSQL re-checks the condition on the row it locks.
   ```sql
   UPDATE id_blocks SET next_id = next_id + @size
-  WHERE block_id = (SELECT block_id FROM id_blocks
-                    WHERE region_index = @r AND status = 'active' AND next_id + @size <= range_end
-                    ORDER BY range_start LIMIT 1)
+  WHERE region_index = @r AND status = 'active' AND next_id + @size <= range_end
   RETURNING next_id - @size;
   ```
-  - No row returned means the active block is exhausted. The `reserved` block, if any, is then activated; if there isn't one, creates fail (`503`) and an alert fires. The 80% alert exists so this never happens.
   - `ShortCodeGenerator` keeps the current and the next lease and hands out IDs under a lock. It fetches the next lease in the background at 50% use.
+  - A final partial lease (fewer than 10,000 IDs left in a block) is skipped. That wastes at most 9,999 IDs per block, which is negligible.
+- **Switching to the next block** (when the lease statement returns no row):
+  1. In one transaction, take a per-region advisory lock: `pg_advisory_xact_lock(<id_blocks lock key>, @r)`. Only one instance can switch blocks at a time.
+  2. Re-read the active block. If another instance has already switched, commit and retry the lease.
+  3. Otherwise mark the active block `exhausted` and the lowest `reserved` block for this region `active`, then commit and retry the lease.
+  4. If there is no reserved block, creates fail with `503`, and a critical alert fires. The 80% alert (via `id_block_used_ratio`) exists so this never happens.
 - **Startup check, before the instance reports ready:**
   1. Read `ShortCode:DeploymentRegionIndex` (default 0).
   2. Fail if `id_blocks` has no active block for that region, or contains rows for any other region (a misconfiguration guard for the multi-region release).
@@ -389,7 +395,7 @@ Implemented as separate `IUrlValidationRule` classes so the ambiguous scenario c
 | Length | ≤ 2,048 characters (A-20) |
 | No embedded credentials | Reject `user:pass@host` |
 | No self-loop | Host must not be our own short domain |
-| Alias format | 4–30 characters `[A-Za-z0-9_-]`; not a reserved path |
+| Alias format | 4–30 characters `[A-Za-z0-9_-]`; not a reserved path; **not exactly 7 Base62 characters** (`[0-9A-Za-z]{7}` is reserved for generated codes, ADR-0005). `spring1` is rejected; `spring-1` is allowed. |
 
 ## 8. Configuration
 

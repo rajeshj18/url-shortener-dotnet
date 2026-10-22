@@ -38,7 +38,7 @@ and all unconfirmed ones are listed under limitations in the final summary.
 | ID | Assumption | Rationale | Impact if wrong | Change course by | Status |
 |---|---|---|---|---|---|
 | A-20 | Only `http`/`https` URLs are accepted; maximum length **2,048** characters | Security (no `javascript:`/`data:` schemes); 2,048 is a widely supported practical limit | Low | Change the validation rule | Unconfirmed |
-| A-21 | Generated codes are **7 characters**, Base62; custom aliases are 4–30 characters `[A-Za-z0-9_-]` and not reserved paths | Key-space math in the capacity estimates | Low | Configuration change | Unconfirmed |
+| A-21 | Generated codes are **7 characters**, Base62; custom aliases are 4–30 characters `[A-Za-z0-9_-]`, not reserved paths, and **not exactly 7 Base62 characters** (that shape is reserved for generated codes, ADR-0005) | Key-space math in the capacity estimates | Low | Configuration change | Unconfirmed |
 | A-22 | Links **never expire by default**; an optional `expiresAt` can be set | Matches common link-shortener behavior | Low | Add a default TTL | Unconfirmed |
 | A-23 | Submitting the same long URL again creates a **new** code; retries are deduplicated with `Idempotency-Key` | ADR-0010 | Low | Add a deduplication option | Confirmed by engineer |
 | A-24 | **No end-user accounts or UI.** Clients authenticate with **API keys**; only the key that created a link can view its stats or delete it. | Keeps scope focused on APIs | Medium | Add OAuth/OIDC | Unconfirmed |

@@ -1,6 +1,6 @@
 # ADR-0005: Short codes: range lease + Feistel permutation + Base62
 
-**Status:** Proposed · **Date:** 2026-10-21 · **Related:** ADR-0004, [capacity](../02-system-design.md#1-capacity-estimates)
+**Status:** Accepted · **Date:** 2026-10-21 · **Related:** ADR-0002, ADR-0004, NFR-05, NFR-09, [capacity](../02-system-design.md#1-capacity-estimates)
 
 ## Context
 **NFR-05:** a short code must be unique across all regions and for all time. A short URL contains only
@@ -22,8 +22,11 @@ We need ~182.5B unique codes over 5 years, generated at ~3.5K/s across many API 
    - An instance **refuses to start** if its database has no active block for its region, or has blocks belonging to another region.
 3. **Feistel permutation:** a keyed, 4-round Feistel network over 42 bits. Results ≥ 62⁷ are permuted again until they fall in range (*cycle-walking*). The result is a **one-to-one mapping**, so codes never collide and look random.
 4. **Base62** encoding, padded to 7 characters.
-5. **Custom aliases** rely on the primary key (`INSERT … ON CONFLICT DO NOTHING` → `409`).
-   A generated code that happens to match an existing alias hits the same conflict and simply takes the next ID.
+5. **Custom aliases can never be exactly 7 Base62 characters** (`[0-9A-Za-z]{7}`). That shape is reserved for generated codes, and an alias in that shape is rejected with `400`.
+   - Generated codes and aliases therefore **never look alike**, so they can never collide. In the multi-region release, a code in the generated shape can be decoded to find its region, and any other code is known to be an alias.
+   - Aliases still rely on the primary key for uniqueness (`INSERT … ON CONFLICT DO NOTHING` → `409`).
+   - Examples: `spring1` and `Sale2026` are rejected. `spring-1`, `sale26` and `summer-sale` are allowed.
+   - The rule applies from v1, because adding it later would break aliases users had already created.
 
 ## Alternatives considered
 | Approach | Why not chosen |
@@ -58,13 +61,22 @@ global primary key.
 ## Consequences
 - IDs left in a stopped or crashed instance's lease are never issued. That's harmless: even with heavy autoscaling churn the loss is about 1%, and codes are never reused.
 - An alert fires when a region's active block is **80% used**. The response is to assign another block (LLD §6.4 runbook). At 100M/day that is about 9.6 years away in v1.
-- The Feistel key is a secret that **must never change**, because changing it maps IDs to different codes.
+- **The Feistel key must never change, and it must be backed up.** Existing links aren't affected by a key change, because their codes are stored in the database. The risk is to **new** codes:
+  - they could match existing codes (the primary key catches this within one region, but nothing catches it across regions),
+  - and decoding a code to find its region would stop working.
+
+  Losing the key has the same effect as changing it, so it's kept in the secret store with a backup.
+- **Codes can't be enumerated in order, but random guessing still works sometimes.** A random 7-character guess matches a real link with probability equal to the share of the code space in use: ~1% after 1 year and ~5% after 5 years. The mitigation is rate limiting and abuse detection (the ambiguous scenario, NFR-09). Short codes are **not a secret**, so links that must stay private shouldn't rely on them.
+- **Multi-region release:** generated codes are unique across regions because blocks don't overlap. **Aliases additionally need a single global registry** (for example a home region chosen by hashing the alias), because each region's primary key only checks its own database.
 - Tests:
   - the permutation is one-to-one (property-based),
   - encode/decode round-trips,
-  - concurrent leases never overlap.
+  - concurrent leases never overlap,
+  - aliases of exactly 7 Base62 characters are rejected.
 
 ## History
 - 2026-10-21 · Proposed · ZooKeeper + Snowflake + MD5 comparison added at the engineer's request; lease implemented as a single atomic SQL update.
 - 2026-10-22 · Proposed · Fixed split into 8 regions replaced by explicitly assigned blocks; region set per deployment (works with autoscaling); startup check; 80% alert; setting renamed to `DeploymentRegionIndex`.
 - 2026-10-22 · Proposed · Linked to NFR-05; block IDs renamed `B-001`…; one Feistel key shared by all regions; added "why blocks must not overlap" with the rejected region-in-URL alternatives.
+- 2026-10-22 · Proposed · Revised after a consistency review against the requirements, other ADRs, LLD and HLD: aliases may not be exactly 7 Base62 characters (engineer's choice); added the random-guess rate; corrected the reason the Feistel key must never change, and added backing up the key; noted the global alias registry needed for multi-region.
+- 2026-10-22 · **Accepted** · Engineer signed off.

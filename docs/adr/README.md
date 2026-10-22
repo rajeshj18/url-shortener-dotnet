@@ -14,7 +14,7 @@ Once an ADR is Accepted, its decision text is never edited. A changed decision g
 | [0002](0002-consistency-and-availability-model.md) | Single region: reads favor availability (replicas), writes favor consistency (primary + synchronous standby) | Accepted |
 | [0003](0003-platform-dotnet8-csharp11.md) | .NET 8, C# 11, classic object-oriented style | Accepted |
 | [0004](0004-data-store-postgresql.md) | PostgreSQL for v1; Citus when thresholds are reached; multi-region in a later release | Accepted |
-| [0005](0005-short-code-generation.md) | Short codes: range lease + Feistel permutation + Base62 | Proposed |
+| [0005](0005-short-code-generation.md) | Short codes: range lease + Feistel permutation + Base62 | Accepted |
 | [0006](0006-caching-measure-first.md) | Caching: measure first, add only when load tests justify it | Accepted |
 | [0007](0007-http-302-redirects.md) | HTTP 302 redirects | Proposed |
 | [0008](0008-async-analytics-pipeline.md) | Asynchronous analytics pipeline with Kafka | Accepted |

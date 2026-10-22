@@ -16,7 +16,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 | Deployment | **One region across multiple availability zones.** Multi-region is planned for a later release. |
 | Consistency model | Reads favor availability (read replicas); writes favor consistency (primary + synchronous standby, no data loss on failover) ([ADR-0002](docs/adr/0002-consistency-and-availability-model.md)) |
 | Data store | PostgreSQL 16; Citus added when data passes the thresholds in [ADR-0004](docs/adr/0004-data-store-postgresql.md) |
-| Short codes | 7 characters. Leased ID ranges + Feistel permutation + Base62, so codes never collide and can't be guessed ([ADR-0005](docs/adr/0005-short-code-generation.md)) |
+| Short codes | 7 characters. Leased ID ranges + Feistel permutation + Base62, so codes never collide and can't be enumerated in order ([ADR-0005](docs/adr/0005-short-code-generation.md)) |
 | Caching | Measure first. A cache is added only if load tests show it's needed ([ADR-0006](docs/adr/0006-caching-measure-first.md)) |
 | Redirects | 302, with 404 for unknown codes and 410 for deleted or expired ones ([ADR-0007](docs/adr/0007-http-302-redirects.md)) |
 | Analytics | Kafka → worker → rollups; each event counted exactly once ([ADR-0008](docs/adr/0008-async-analytics-pipeline.md)) |
@@ -31,7 +31,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 |---|---|---|
 | [docs/03-architecture.md](docs/03-architecture.md) | **HLD**: components, flows, deployment, failure modes, observability, engineering workflow | Draft |
 | [docs/02-system-design.md](docs/02-system-design.md) | **Capacity, SLO/SLA and LLD**: API contract, SQL schema, classes, algorithms, validation, configuration | Draft |
-| [docs/adr/](docs/adr/README.md) | 13 architecture decision records | 8 Accepted, 5 Proposed |
+| [docs/adr/](docs/adr/README.md) | 13 architecture decision records | 9 Accepted, 4 Proposed |
 | [docs/assumptions.md](docs/assumptions.md) | Assumptions register (we proceeded without external clarification) | Living document |
 | [docs/scenarios/](docs/scenarios/README.md) | Greenfield, brownfield and ambiguous scenarios | Planned |
 | [docs/ai-usage/traceability-log.md](docs/ai-usage/traceability-log.md) | What the AI produced and whether it was accepted, edited or rejected | Living document |
