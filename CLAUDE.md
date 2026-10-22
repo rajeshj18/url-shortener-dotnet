@@ -29,6 +29,7 @@ A URL shortener service (.NET 8) plus the engineer-led, AI-assisted workflow use
 - Draft the PR description from `.github/pull_request_template.md`, including an honest AI disclosure.
 - Add a `TSK-xx` entry to the traceability log. It is **append-only and records only things that actually happened**. For **high-risk** tasks, record the prompt iterations (v1 → v2 …, and why).
 - Add a `CHANGELOG.md` entry for every user-visible change.
+- **Before the engineer merges a PR:** ask for the **actual hours** and any **edits or rejections**, and record them in the log entry **on the branch**. Learned in TSK-01, where a merge before the update needed a follow-up PR.
 
 ## Confidentiality and secure AI usage (ADR-0011)
 - **Never read, quote or commit the assignment brief** (any `*.pdf` in the project folder), and never name the company or its classification marking.
@@ -46,6 +47,16 @@ A URL shortener service (.NET 8) plus the engineer-led, AI-assisted workflow use
 - Each schema has one owner: the Api owns `links`, the Worker owns `analytics`. Other services use read-only database users. Redirect reads only the `redirect_lookup` view.
 - **Services never run migrations at startup.** Migrations ship as EF Core bundles and run before deployment.
 - Changes to the schema, the `ClickEvent` contract or the API must be **backward-compatible** (expand, then contract; optional event fields only; `/api/v1`).
+
+## Coding principles (engineer requirement, TSK-02)
+- **SOLID:**
+  - single responsibility per class;
+  - extend through new implementations (e.g. decorators, new `IUrlValidationRule` classes) rather than editing working code;
+  - implementations honour their interface contracts;
+  - small, role-specific interfaces;
+  - depend on abstractions, wired up only in each service's `Program` (the composition root).
+- **Middleware for cross-cutting concerns:** exception handling, correlation, authentication, request timeouts and rate limiting go in the ASP.NET Core pipeline (`UrlShortener.Infrastructure.Web`), **never in controllers**. Controllers only map HTTP to Application use cases.
+- **Fix analyzer findings in the code.** A suppression needs a targeted `.editorconfig` entry with a written reason.
 
 ## C# style (ADR-0003)
 - `net8.0`, `LangVersion 11`, nullable reference types enabled, warnings treated as errors, `AnalysisMode=All`.
