@@ -6,7 +6,19 @@ Each entry names the task (`TSK-xx`) that made the change.
 
 ## [Unreleased]
 
+### Changed
+- `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
+
 ### Added
+- CI quality gates (TSK-04):
+  - `ci.yml`, with the jobs `build-test`, `codeql`, `secrets` and `dependencies`;
+  - a test-metrics gate: failed = 0, skipped = 0, coverage ≥ 80% on Domain/Application;
+  - test results posted on PRs;
+  - `scheduled.yml`, with a daily dependency scan and a weekly CodeQL run;
+  - Dependabot;
+  - all actions pinned to commit SHAs;
+  - `.gitleaksignore` with one reviewed false positive;
+  - a CI badge in the README.
 - Local stack: `docker-compose.yml` with PostgreSQL 16.15, `grafana/otel-lgtm` 0.37.0, Api and Redirect.
   - Multi-stage Alpine Dockerfiles for all 3 services, running as the non-root `app` user, with health checks.
   - `.dockerignore` keeping the brief, secrets and build output out of images.
