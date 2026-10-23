@@ -173,6 +173,8 @@ jobs:
 
       - name: "Gate: k6 smoke, SLO thresholds after a 15 s warm-up (redirect p99 < 50 ms, create p99 < 200 ms)"
         run: bash scripts/load-test.sh smoke
+        env:
+          P99_REDIRECT_MS: "1"   # PROOF ONLY (TSK-12 AC4): an impossible threshold; this PR is closed unmerged
 
       - name: Upload the k6 summary
         if: always() && hashFiles('tests/load/results/*.json') != ''
