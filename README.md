@@ -10,7 +10,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 > - The design is complete: requirements, HLD, LLD and 13 accepted ADRs.
 > - The solution skeleton, the shared middleware and health endpoints, and the local Docker stack are in place (TSK-01 to TSK-03).
 > - The domain model, persistence and short-code generation are in place (TSK-05 to TSK-07).
-> - **Create, redirect, metadata and delete work** (`POST /api/v1/urls`, TSK-08; `GET /{code}`, TSK-09; `GET`/`DELETE /api/v1/urls/{code}`, TSK-10). Resilience follows in TSK-11; see the [task breakdown](docs/04-task-breakdown.md).
+> - **Create, redirect, metadata and delete work** (`POST /api/v1/urls`, TSK-08; `GET /{code}`, TSK-09; `GET`/`DELETE /api/v1/urls/{code}`, TSK-10). They have timeouts, retries and circuit breakers (TSK-11). The v1 load test follows in TSK-12; see the [task breakdown](docs/04-task-breakdown.md).
 
 ## Run locally
 

@@ -1,8 +1,10 @@
+using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using UrlShortener.Infrastructure.Observability;
 using UrlShortener.Infrastructure.Persistence;
 using UrlShortener.Infrastructure.Redirects;
+using UrlShortener.Infrastructure.Resilience;
 using UrlShortener.Infrastructure.Web;
 
 namespace UrlShortener.Redirect
@@ -24,7 +26,9 @@ namespace UrlShortener.Redirect
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllers();
-            builder.Services.AddUrlShortenerWebDefaults();
+            // LLD §6.7: a redirect gets 500 ms; an open primary-fallback breaker answers 503 with Retry-After: 1.
+            TimeSpan requestTimeout = ResilienceConfiguration.Read(builder.Configuration).RequestTimeout ?? TimeSpan.FromMilliseconds(500);
+            builder.Services.AddUrlShortenerWebDefaults(requestTimeout, unavailableRetryAfterSeconds: 1);
             builder.Services.AddUrlShortenerHealthChecks();
             builder.Services.AddLinksReadStore(builder.Configuration);
             builder.Services.AddRedirectUseCases(builder.Configuration);

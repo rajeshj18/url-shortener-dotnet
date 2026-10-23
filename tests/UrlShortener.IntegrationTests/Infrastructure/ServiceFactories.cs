@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -40,14 +41,18 @@ namespace UrlShortener.IntegrationTests.Infrastructure
 
         private readonly string _primary;
         private readonly bool _enableOpenApi;
+        private readonly IReadOnlyDictionary<string, string>? _settings;
+        private readonly Action<IServiceCollection>? _testServices;
 
         /// <summary>Every log line the Api wrote (all levels).</summary>
         public CapturingLoggerProvider Logs { get; } = new CapturingLoggerProvider();
 
-        public ApiFactory(string primary, bool enableOpenApi = false)
+        public ApiFactory(string primary, bool enableOpenApi = false, IReadOnlyDictionary<string, string>? settings = null, Action<IServiceCollection>? testServices = null)
         {
             _primary = primary ?? throw new ArgumentNullException(nameof(primary));
             _enableOpenApi = enableOpenApi;
+            _settings = settings;
+            _testServices = testServices;
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -62,7 +67,9 @@ namespace UrlShortener.IntegrationTests.Infrastructure
                 .UseSetting("ApiKeys:Clients:1:OwnerId", CallerTwoOwner)
                 .UseSetting("ApiKeys:Clients:1:KeyHash", Sha256Hex(CallerTwoHeader))
                 .UseSetting("OpenApi:EnableUi", _enableOpenApi ? "true" : "false")
-                .ConfigureServices(services => services.AddSingleton<ILoggerProvider>(Logs));
+                .ConfigureServices(services => services.AddSingleton<ILoggerProvider>(Logs))
+                .ConfigureTestServices(services => _testServices?.Invoke(services));
+            ApplySettings(builder, _settings);
         }
 
         /// <summary>A client that sends the given caller's X-Api-Key on every request.</summary>
@@ -75,6 +82,19 @@ namespace UrlShortener.IntegrationTests.Infrastructure
             return client;
         }
 
+        internal static void ApplySettings(IWebHostBuilder builder, IReadOnlyDictionary<string, string>? settings)
+        {
+            if (settings == null)
+            {
+                return;
+            }
+
+            foreach (KeyValuePair<string, string> setting in settings)
+            {
+                builder.UseSetting(setting.Key, setting.Value);
+            }
+        }
+
         private static string Sha256Hex(string value)
         {
             return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
@@ -85,10 +105,20 @@ namespace UrlShortener.IntegrationTests.Infrastructure
     public sealed class RedirectFactory : WebApplicationFactory<UrlShortener.Redirect.Program>
     {
         private readonly string _connection;
+        private readonly string? _primary;
+        private readonly IReadOnlyDictionary<string, string>? _settings;
+        private readonly Action<IServiceCollection>? _testServices;
 
-        public RedirectFactory(string connection)
+        /// <param name="connection">The Redirect role's connection, used for the replicas (and the primary, unless overridden).</param>
+        /// <param name="primary">A different primary, e.g. an unreachable one for breaker tests.</param>
+        /// <param name="settings">Extra configuration.</param>
+        /// <param name="testServices">Service overrides.</param>
+        public RedirectFactory(string connection, string? primary = null, IReadOnlyDictionary<string, string>? settings = null, Action<IServiceCollection>? testServices = null)
         {
             _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+            _primary = primary;
+            _settings = settings;
+            _testServices = testServices;
         }
 
         /// <summary>Every click event the Redirect service published (replaces the no-op publisher).</summary>
@@ -98,13 +128,15 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         {
             ArgumentNullException.ThrowIfNull(builder);
             builder
-                .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.PrimaryConnectionName, _connection)
+                .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.PrimaryConnectionName, _primary ?? _connection)
                 .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.ReplicasConnectionName, _connection)
                 .ConfigureTestServices(services =>
                 {
                     services.RemoveAll<IClickEventPublisher>();
                     services.AddSingleton<IClickEventPublisher>(Clicks);
+                    _testServices?.Invoke(services);
                 });
+            ApiFactory.ApplySettings(builder, _settings);
         }
     }
 

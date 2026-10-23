@@ -16,6 +16,12 @@ Each entry names the task (`TSK-xx`) that made the change.
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
 ### Added
+- **Resilience** (TSK-11, LLD §6.6–§6.7).
+  - Database timeouts on every connection (connect 2 s, command 1 s; `statement_timeout = 2s` for the Api writer); request timeouts (Api 3 s, Redirect 500 ms) → `503` + `Retry-After`.
+  - Circuit breakers (Polly.Core 8.8.0): `links-primary` in the Api, `redirect-primary-fallback` in Redirect; pool cleared on open; `circuit_state` / `circuit_transitions` metrics. While the fallback breaker is open, Redirect keeps serving replica hits and answers misses `503` + `Retry-After: 1`.
+  - Retry rule: one retry for failures before `COMMIT`; a failure during `COMMIT` is retried only with an `Idempotency-Key`; never while the breaker is open or after cancellation. Each attempt runs in a fresh scope.
+  - Idempotency-key cleanup every 5 minutes under an advisory lock, in batches.
+  - `Resilience:*` configuration. Tests: 18 unit and 5 integration tests, including fault injection (a paused PostgreSQL container).
 - **Metadata and delete: `GET` / `DELETE /api/v1/urls/{code}`** (TSK-10, LLD §6.3).
   - Owner only; another client's link and an unknown code give the same `404 link.not-found`.
   - Soft delete, `204`, idempotent (keeps the first deletion time); the short URL then answers `410`, and the alias can't be created again (A-25). The owner still sees a deleted link, with `deletedAt` (D1).

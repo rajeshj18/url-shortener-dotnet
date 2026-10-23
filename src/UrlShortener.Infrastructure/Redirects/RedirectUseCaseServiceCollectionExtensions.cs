@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using UrlShortener.Application.Ports;
 using UrlShortener.Application.Redirects;
+using UrlShortener.Infrastructure.Persistence.Links;
+using UrlShortener.Infrastructure.Resilience;
 
 namespace UrlShortener.Infrastructure.Redirects
 {
@@ -31,11 +33,22 @@ namespace UrlShortener.Infrastructure.Redirects
                 throw new InvalidOperationException(FallbackPerSecondKey + " must be at least 1.");
             }
 
+            ResilienceOptions resilience = ResilienceConfiguration.Read(configuration);
             services.TryAddSingleton(TimeProvider.System);
+            services.AddSingleton(provider => new DatabaseCircuitBreaker(
+                "redirect-primary-fallback",
+                resilience,
+                provider.GetRequiredService<TimeProvider>(),
+                () => provider.GetRequiredService<LinksPrimaryDataSource>().ClearPool()));
             services.AddSingleton<IPrimaryFallbackBudget>(provider => new TokenBucketFallbackBudget(perSecond, provider.GetRequiredService<TimeProvider>()));
             services.TryAddSingleton<IUserAgentClassifier, TokenUserAgentClassifier>();
             services.TryAddSingleton<IClickEventPublisher, NoOpClickEventPublisher>();
-            services.AddSingleton<IResolveShortUrlHandler, ResolveShortUrlHandler>();
+            services.AddSingleton<IResolveShortUrlHandler>(provider => new ResolveShortUrlHandler(
+                new BreakerGuardedRedirectLookup(provider.GetRequiredService<IRedirectLookup>(), provider.GetRequiredService<DatabaseCircuitBreaker>()),
+                provider.GetRequiredService<IPrimaryFallbackBudget>(),
+                provider.GetRequiredService<IClickEventPublisher>(),
+                provider.GetRequiredService<IUserAgentClassifier>(),
+                provider.GetRequiredService<TimeProvider>()));
             return services;
         }
     }
