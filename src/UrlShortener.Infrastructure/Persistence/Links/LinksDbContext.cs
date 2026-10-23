@@ -46,6 +46,7 @@ namespace UrlShortener.Infrastructure.Persistence.Links
             entity.Property(x => x.IsCustom).HasColumnName("is_custom");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
             entity.Property(x => x.DeletedAt).HasColumnName("deleted_at");
+            entity.Property(x => x.ExpiresAt).HasColumnName("expires_at");
         }
 
         private static void ConfigureIdBlocks(EntityTypeBuilder<IdBlockRecord> entity)

@@ -25,5 +25,8 @@ namespace UrlShortener.Infrastructure.Persistence.Links
 
         /// <summary>Soft-delete time (UTC), or <c>null</c>.</summary>
         public DateTimeOffset? DeletedAt { get; set; }
+
+        /// <summary>Expiry, or <c>null</c> (TSK-14).</summary>
+        public DateTimeOffset? ExpiresAt { get; set; }
     }
 }
