@@ -136,6 +136,48 @@ namespace UrlShortener.UnitTests.Domain
             url.State.Should().Be(LinkState.Active);
         }
 
+        [Fact]
+        public void Rehydrate_active_generated_link_restores_every_field()
+        {
+            ShortCode code = ShortCode.FromGenerated("aZ3k9Qx");
+
+            ShortUrl url = ShortUrl.Rehydrate(code, Target, "client-42", Created, deletedAt: null);
+
+            url.Code.Should().Be(code);
+            url.Target.Should().Be(Target);
+            url.OwnerId.Should().Be("client-42");
+            url.IsCustom.Should().BeFalse();
+            url.CreatedAt.Should().Be(Created);
+            url.State.Should().Be(LinkState.Active);
+        }
+
+        [Fact]
+        public void Rehydrate_deleted_alias_link_restores_deletion()
+        {
+            ShortCode code = ShortCode.FromAlias(CustomAlias.Create("spring-sale"));
+            DateTimeOffset deletedAt = Created.AddDays(1);
+
+            ShortUrl url = ShortUrl.Rehydrate(code, Target, "client-42", Created, deletedAt);
+
+            url.IsCustom.Should().BeTrue();
+            url.State.Should().Be(LinkState.Deleted);
+            url.DeletedAt.Should().Be(deletedAt);
+        }
+
+        [Fact]
+        public void Rehydrate_invalid_record_is_rejected()
+        {
+            ShortCode code = ShortCode.FromGenerated("aZ3k9Qx");
+
+            Action blankOwner = () => ShortUrl.Rehydrate(code, Target, " ", Created, null);
+            Action deletedBeforeCreated = () => ShortUrl.Rehydrate(code, Target, "client-42", Created, Created.AddMinutes(-1));
+            Action nullCode = () => ShortUrl.Rehydrate(null!, Target, "client-42", Created, null);
+
+            blankOwner.Should().Throw<DomainValidationException>().Which.Code.Should().Be(DomainErrorCodes.OwnerRequired);
+            deletedBeforeCreated.Should().Throw<DomainValidationException>().Which.Code.Should().Be(DomainErrorCodes.TimeOrder);
+            nullCode.Should().Throw<ArgumentNullException>();
+        }
+
         private static ShortUrl NewUrl()
         {
             return ShortUrl.CreateGenerated(ShortCode.FromGenerated("aZ3k9Qx"), Target, "client-42", Created);

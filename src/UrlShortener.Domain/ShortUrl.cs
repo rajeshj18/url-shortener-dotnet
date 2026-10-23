@@ -68,6 +68,28 @@ namespace UrlShortener.Domain
         }
 
         /// <summary>
+        /// Rebuilds a stored link (TSK-06). Every value goes through the same validated value objects and owner
+        /// rules as a new link, so an invalid record can't become a domain object.
+        /// </summary>
+        /// <param name="code">The stored code (generated or alias).</param>
+        /// <param name="target">The stored destination.</param>
+        /// <param name="ownerId">The stored owner.</param>
+        /// <param name="createdAt">The stored creation time.</param>
+        /// <param name="deletedAt">The stored deletion time, or <c>null</c>.</param>
+        /// <returns>The link, in its stored state.</returns>
+        public static ShortUrl Rehydrate(ShortCode code, LongUrl target, string? ownerId, DateTimeOffset createdAt, DateTimeOffset? deletedAt)
+        {
+            ArgumentNullException.ThrowIfNull(code);
+            ShortUrl shortUrl = Create(code, target, ownerId, createdAt);
+            if (deletedAt.HasValue)
+            {
+                shortUrl.MarkDeleted(deletedAt.Value);
+            }
+
+            return shortUrl;
+        }
+
+        /// <summary>
         /// The current state: <see cref="LinkState.Deleted"/> once deleted, otherwise <see cref="LinkState.Active"/>.
         /// A property for now, because nothing time-dependent exists yet. Expiry (TSK-14) makes state depend on
         /// the current time, which turns this into <c>GetState(now)</c>.
