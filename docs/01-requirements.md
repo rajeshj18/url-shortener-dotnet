@@ -74,15 +74,15 @@ Each section of the brief is described in our own words (ADR-0011) and mapped to
 | A working prototype that turns a requirement into a reviewable engineering outcome | Stage 1 build (TSK-02 to TSK-22); PRs per task (ADR-0012) | ⏳ |
 | Show requirement understanding, task decomposition, multi-step execution, output generation and validation | §6.3 rows 1, 2, 4, 5, 6 | see below |
 | Engineer-led execution accelerated by AI, not autonomous orchestration | ADR-0012; engineer-authored sign-off commits; traceability log | ✅ |
-| A URL shortener with **core APIs** | FR-01 to FR-10; LLD §3; TSK-08 to TSK-10 | ⏳ |
+| A URL shortener with **core APIs** | FR-01 to FR-10; LLD §3; TSK-08 to TSK-10 ([scenario 1](scenarios/01-greenfield.md)) | ✅ FR-01–03, 05, 06, 08–10 · ⏳ FR-04 (TSK-14) |
 | … with **analytics** | FR-07; ADR-0008; LLD §6.5; **TSK-23 (stage 2)** | ⚠️ G3 |
-| … with **reliability features** | ADR-0002; LLD §6.6–6.7; HLD §5; TSK-11 | ⏳ |
+| … with **reliability features** | ADR-0002; LLD §6.6–6.7; HLD §5; TSK-11, TSK-11b; fault-injection tests | ✅ |
 | Completed over 2–3 days with AI assistance, showing engineering judgment | Timebox discussion in `04-task-breakdown.md` §5; documented trade-offs (ADR alternatives) | ⚠️ G5 |
 
 ### 6.2 Scope
 | Brief item | Addressed by | Status |
 |---|---|---|
-| Greenfield work | Scenario 1 (TSK-05 to TSK-13) | ⏳ |
+| Greenfield work | Scenario 1 (TSK-05 to TSK-13): [write-up](scenarios/01-greenfield.md) | ✅ |
 | Brownfield: enhancements, refactors, bug fixes | Scenario 2: expiry (TSK-14), validation refactor (TSK-16), alias race (TSK-15); analytics in stage 2 (TSK-23) | ⏳ |
 | Test and documentation improvements | TSK-17; Stryker (TSK-28, stage 3) | ⏳ |
 | Well-defined and ambiguous requirements | Scenarios 1–2 (well-defined); scenario 3 (TSK-19, TSK-20) | ⏳ |
@@ -97,7 +97,7 @@ Each section of the brief is described in our own words (ADR-0011) and mapped to
 | 4b | Tasks defined with intent, constraints, acceptance criteria, technical context | Task-spec template (TSK-01); `docs/tasks/TSK-xx` | ⏳ |
 | 4c | **Disciplined prompting with iterative refinement** | Prompt library with version history (TSK-01); prompt iterations logged for high-risk tasks (definition of done) | ⏳ (G1 resolved) |
 | 4d | Traceability: generated, edited or rejected, with rationale | `ai-usage/traceability-log.md` (PLAN-01 to PLAN-26 so far; TSK-xx to follow) | ✅ |
-| 4e | Quality gates: analysis, linting, tests, security, **performance** | ADR-0012 §5; TSK-04 (core gates); k6 performance smoke in CI from stage 1 (TSK-12) | ⏳ (G2 resolved) |
+| 4e | Quality gates: analysis, linting, tests, security, **performance** | ADR-0012 §5; TSK-04 (core gates); k6 `perf-smoke` on every PR (TSK-12); [load-test results](perf/v1-load-test.md) | ✅ (G2 resolved; `perf-smoke` becomes required when the engineer adds it to the ruleset) |
 | 4f | Secure AI usage | ADR-0011; gitleaks, SCA and CodeQL in TSK-04 | ✅ decided · ⏳ tooling |
 | 4g | Human sign-off for high-impact changes | ADR-0012 §4 risk classes; signed-off ADR commits (git history) | ✅ |
 | 4h | Explicit engineer ownership of correctness, maintainability, production readiness | PR checklist ownership statement (ADR-0012); merge commits by the engineer | ✅ decided · ⏳ in PRs |
