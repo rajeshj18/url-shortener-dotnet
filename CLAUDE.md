@@ -29,7 +29,7 @@ A URL shortener service (.NET 8) plus the engineer-led, AI-assisted workflow use
 - Draft the PR description from `.github/pull_request_template.md`, including an honest AI disclosure.
 - Add a `TSK-xx` entry to the traceability log. It is **append-only and records only things that actually happened**. For **high-risk** tasks, record the prompt iterations (v1 → v2 …, and why).
 - Add a `CHANGELOG.md` entry for every user-visible change.
-- **Before the engineer merges a PR:** ask for the **actual hours** and any **edits or rejections**, and record them in the log entry **on the branch**. Learned in TSK-01, where a merge before the update needed a follow-up PR.
+- **When the engineer opens the PR**, ask for the **actual hours** and any **edits or rejections** straight away, and record them in the log entry **on the branch**, so the PR is complete before anyone looks at the merge button. (TSK-01 and TSK-04 were both merged before their entries were finished and needed follow-up PRs.)
 
 ## CI (TSK-04)
 - The required checks are `build-test`, `codeql`, `secrets` and `dependencies` (`.github/workflows/ci.yml`). **Don't rename these jobs**: the `main` ruleset refers to them by name.

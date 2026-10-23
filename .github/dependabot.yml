@@ -14,3 +14,8 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # FluentAssertions 8.x is under a commercial licence (Xceed); 7.x is the last Apache-2.0 line.
+      # Engineer decision in TSK-02; Dependabot proposed 8.11.0 in PR #7 (closed, TSK-04 follow-up).
+      - dependency-name: "FluentAssertions"
+        versions: [">= 8.0.0"]
