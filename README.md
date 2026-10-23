@@ -10,7 +10,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 > - The design is complete: requirements, HLD, LLD and 13 accepted ADRs.
 > - The solution skeleton, the shared middleware and health endpoints, and the local Docker stack are in place (TSK-01 to TSK-03).
 > - The domain model, persistence and short-code generation are in place (TSK-05 to TSK-07).
-> - **Creating short links works** (`POST /api/v1/urls`, TSK-08). Redirects follow in TSK-09; see the [task breakdown](docs/04-task-breakdown.md).
+> - **Creating short links and redirecting work** (`POST /api/v1/urls`, TSK-08; `GET /{code}`, TSK-09). Metadata and delete follow in TSK-10; see the [task breakdown](docs/04-task-breakdown.md).
 
 ## Run locally
 
@@ -101,7 +101,8 @@ curl -i -X POST http://localhost:5080/api/v1/urls \
 
 - Add `"customAlias": "spring-sale"` for your own code. A taken alias returns `409`.
 - Send the same request with the same `Idempotency-Key` again: you get the **same link** back with `Idempotent-Replayed: true`. The same key with a different body returns `422`.
-- Errors are RFC 7807 problems with a stable `code` (LLD §3). The `shortUrl` points at the Redirect service, which starts redirecting in TSK-09.
+- Errors are RFC 7807 problems with a stable `code` (LLD §3).
+- **Open the returned `shortUrl`** (`http://localhost:5081/<code>`) in a browser: it redirects with `302`. `curl -I http://localhost:5081/<code>` shows the status and `Cache-Control: no-store` without following it. Unknown codes give `404`.
 
 ## Design at a glance
 
