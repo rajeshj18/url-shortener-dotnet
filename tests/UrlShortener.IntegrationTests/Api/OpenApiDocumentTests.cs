@@ -68,7 +68,11 @@ namespace UrlShortener.IntegrationTests.Api
         private static string Normalize(string json)
         {
             using JsonDocument document = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(document.RootElement, Indented).Replace("\r\n", "\n", StringComparison.Ordinal) + "\n";
+            // Line breaks inside descriptions come from the XML documentation file, which the compiler writes with
+            // the OS's line ending (CRLF on Windows, LF on the Linux CI runner). Normalize the escaped ones too.
+            return JsonSerializer.Serialize(document.RootElement, Indented)
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace("\\r\\n", "\\n", StringComparison.Ordinal) + "\n";
         }
     }
 }

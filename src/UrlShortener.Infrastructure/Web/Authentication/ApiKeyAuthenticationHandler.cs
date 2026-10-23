@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -60,16 +61,12 @@ namespace UrlShortener.Infrastructure.Web.Authentication
             ArgumentNullException.ThrowIfNull(clients);
 
             byte[] presentedHash = SHA256.HashData(Encoding.UTF8.GetBytes(presentedKey));
-            string? owner = null;
-            foreach (ApiKeyClient client in clients)
-            {
-                if (CryptographicOperations.FixedTimeEquals(presentedHash, client.KeyHashBytes()) && owner == null)
-                {
-                    owner = client.OwnerId;
-                }
-            }
-
-            return owner;
+            // ToList evaluates every client (no early exit), so the time taken doesn't depend on which one matches.
+            List<string> matches = clients
+                .Where(client => CryptographicOperations.FixedTimeEquals(presentedHash, client.KeyHashBytes()))
+                .Select(client => client.OwnerId)
+                .ToList();
+            return matches.Count > 0 ? matches[0] : null;
         }
     }
 }

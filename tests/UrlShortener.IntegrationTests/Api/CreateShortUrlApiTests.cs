@@ -226,28 +226,17 @@ namespace UrlShortener.IntegrationTests.Api
             string key = Guid.NewGuid().ToString();
             string longUrl = "https://example.com/race-" + Guid.NewGuid().ToString("N");
 
-            HttpResponseMessage[] responses = await Task.WhenAll(Enumerable.Range(0, 10)
-                .Select(_ => PostRawAsync(_one, "{\"longUrl\":\"" + longUrl + "\"}", key)));
-            try
+            // Each request reads what it needs and disposes its own response.
+            (HttpStatusCode Status, string Code, bool Replayed)[] results = await Task.WhenAll(Enumerable.Range(0, 10).Select(async _ =>
             {
-                responses.Should().OnlyContain(r => r.StatusCode == HttpStatusCode.Created);
-                List<string> codes = new List<string>();
-                foreach (HttpResponseMessage response in responses)
-                {
-                    codes.Add(await CodeOf(response));
-                }
+                using HttpResponseMessage response = await PostRawAsync(_one, "{\"longUrl\":\"" + longUrl + "\"}", key);
+                return (response.StatusCode, await CodeOf(response), response.Headers.Contains(ShortUrlsControllerReplayedHeader));
+            }));
 
-                codes.Distinct().Should().ContainSingle("every caller gets the same link");
-                responses.Count(r => r.Headers.Contains(ShortUrlsControllerReplayedHeader)).Should().Be(9);
-                (await ScalarAsync($"SELECT count(*) FROM short_urls WHERE long_url = '{longUrl}'")).Should().Be(1L);
-            }
-            finally
-            {
-                foreach (HttpResponseMessage response in responses)
-                {
-                    response.Dispose();
-                }
-            }
+            results.Should().OnlyContain(r => r.Status == HttpStatusCode.Created);
+            results.Select(r => r.Code).Distinct().Should().ContainSingle("every caller gets the same link");
+            results.Count(r => r.Replayed).Should().Be(9);
+            (await ScalarAsync($"SELECT count(*) FROM short_urls WHERE long_url = '{longUrl}'")).Should().Be(1L);
         }
 
         private const string ShortUrlsControllerReplayedHeader = UrlShortener.Api.Controllers.ShortUrlsController.ReplayedHeader;
