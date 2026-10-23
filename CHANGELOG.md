@@ -15,6 +15,9 @@ Each entry names the task (`TSK-xx`) that made the change.
 - CI: gitleaks scans only the history being merged; runners pinned to `ubuntu-24.04`; the gate emits annotations (TSK-04).
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
+### Fixed
+- **Connection pools are capped** (TSK-11b, LLD §6.7): Api writer 30, Redirect replicas 30, Redirect fallback 10 (`Resilience:*MaxPoolSize`). Uncapped pools (Npgsql's default of 100 each) exhausted PostgreSQL's 100 connections under sustained load, found by the TSK-12 load test: at 1,500 redirects/s, p99 went from 827 ms with 12% errors to 3.8 ms with none.
+
 ### Added
 - **Resilience** (TSK-11, LLD §6.6–§6.7).
   - Database timeouts on every connection (connect 2 s, command 1 s; `statement_timeout = 2s` for the Api writer); request timeouts (Api 3 s, Redirect 500 ms) → `503` + `Retry-After`.

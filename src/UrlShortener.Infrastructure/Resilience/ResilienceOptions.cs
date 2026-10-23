@@ -23,6 +23,20 @@ namespace UrlShortener.Infrastructure.Resilience
         /// <summary>Server-side guard for the Api's statements (TSK-11 D1).</summary>
         public int StatementTimeoutMilliseconds { get; set; } = 2000;
 
+        /// <summary>
+        /// Pool cap of the Api's writer connection. LLD §6.7: instances × pool size must stay well below the server's
+        /// <c>max_connections</c> (100 locally). Without a cap a latency blip grows the pool until PostgreSQL refuses
+        /// connections (found by the TSK-12 load test). A full pool makes callers wait (bounded by the request
+        /// timeout) instead of opening more connections.
+        /// </summary>
+        public int ApiPrimaryMaxPoolSize { get; set; } = 30;
+
+        /// <summary>Pool cap of Redirect's replica connection.</summary>
+        public int RedirectReplicaMaxPoolSize { get; set; } = 30;
+
+        /// <summary>Pool cap of Redirect's primary-fallback connection (also limited by its token bucket).</summary>
+        public int RedirectPrimaryMaxPoolSize { get; set; } = 10;
+
         /// <summary>Wait before the single server-side retry (plus up to the same again as jitter).</summary>
         public TimeSpan RetryDelay { get; set; } = TimeSpan.FromMilliseconds(100);
 
