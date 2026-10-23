@@ -66,16 +66,12 @@ namespace UrlShortener.Application.ShortUrls
             ArgumentNullException.ThrowIfNull(command);
 
             // 1. Validate everything before touching the database (nothing is stored for a 400).
-            if (command.ExpiresAt.HasValue)
-            {
-                throw new DomainValidationException(ApplicationErrorCodes.ExpiryUnsupported, "Link expiry is not available yet; omit expiresAt.");
-            }
-
             LongUrl longUrl = LongUrl.Create(command.Destination);
             _selfLinkCheck.Ensure(longUrl);
             CustomAlias? alias = command.CustomAlias == null ? null : CustomAlias.Create(command.CustomAlias);
-            string requestHash = RequestHash.Compute(longUrl, command.CustomAlias, null);
             DateTimeOffset now = _time.GetUtcNow();
+            ShortUrl.ValidateExpiry(now, command.ExpiresAt);
+            string requestHash = RequestHash.Compute(longUrl, command.CustomAlias, command.ExpiresAt);
 
             // 2. One transaction: key, link, response.
             await using IUnitOfWorkTransaction transaction = await _unitOfWork.BeginAsync(cancellationToken);
@@ -95,8 +91,8 @@ namespace UrlShortener.Application.ShortUrls
             }
 
             ShortUrl? shortUrl = alias != null
-                ? await InsertAliasAsync(alias, longUrl, command.OwnerId, now, cancellationToken)
-                : await InsertGeneratedAsync(transaction, longUrl, command.OwnerId, now, cancellationToken);
+                ? await InsertAliasAsync(alias, longUrl, command.OwnerId, now, command.ExpiresAt, cancellationToken)
+                : await InsertGeneratedAsync(transaction, longUrl, command.OwnerId, now, command.ExpiresAt, cancellationToken);
             if (shortUrl == null)
             {
                 return CreateShortUrlResult.AliasTaken; // disposing rolls back, including the key row
@@ -107,7 +103,7 @@ namespace UrlShortener.Application.ShortUrls
                 new Uri(_publicBaseUrl, shortUrl.Code.Value),
                 longUrl.Uri, // serialized from OriginalString: exactly as sent
                 shortUrl.CreatedAt,
-                null);
+                shortUrl.ExpiresAt);
             if (command.IdempotencyKey != null)
             {
                 await _idempotency.CompleteAsync(command.OwnerId, command.IdempotencyKey, JsonSerializer.Serialize(body, BodyJson), cancellationToken);
@@ -125,18 +121,18 @@ namespace UrlShortener.Application.ShortUrls
 
         // The primary key is the guard: no read before the insert, so concurrent requests for one alias give
         // exactly one 201 and 409s, never a 500 (TSK-08 D2).
-        private async Task<ShortUrl?> InsertAliasAsync(CustomAlias alias, LongUrl longUrl, string ownerId, DateTimeOffset now, CancellationToken cancellationToken)
+        private async Task<ShortUrl?> InsertAliasAsync(CustomAlias alias, LongUrl longUrl, string ownerId, DateTimeOffset now, DateTimeOffset? expiresAt, CancellationToken cancellationToken)
         {
-            ShortUrl shortUrl = ShortUrl.CreateWithAlias(alias, longUrl, ownerId, now);
+            ShortUrl shortUrl = ShortUrl.CreateWithAlias(alias, longUrl, ownerId, now, expiresAt);
             return await _repository.TryInsertAsync(shortUrl, cancellationToken) ? shortUrl : null;
         }
 
-        private async Task<ShortUrl> InsertGeneratedAsync(IUnitOfWorkTransaction transaction, LongUrl longUrl, string ownerId, DateTimeOffset now, CancellationToken cancellationToken)
+        private async Task<ShortUrl> InsertGeneratedAsync(IUnitOfWorkTransaction transaction, LongUrl longUrl, string ownerId, DateTimeOffset now, DateTimeOffset? expiresAt, CancellationToken cancellationToken)
         {
             for (int attempt = 1; attempt <= MaxGeneratedAttempts; attempt++)
             {
                 ShortCode code = await _generator.NextAsync(cancellationToken);
-                ShortUrl shortUrl = ShortUrl.CreateGenerated(code, longUrl, ownerId, now);
+                ShortUrl shortUrl = ShortUrl.CreateGenerated(code, longUrl, ownerId, now, expiresAt);
 
                 await transaction.CreateSavepointAsync(GeneratedCodeSavepoint, cancellationToken);
                 if (await _repository.TryInsertAsync(shortUrl, cancellationToken))
