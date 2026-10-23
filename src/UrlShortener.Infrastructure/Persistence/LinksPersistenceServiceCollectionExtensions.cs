@@ -36,8 +36,8 @@ namespace UrlShortener.Infrastructure.Persistence
             ArgumentNullException.ThrowIfNull(configuration);
 
             ResilienceOptions resilience = ResilienceConfiguration.Read(configuration);
-            string primary = ResilienceConfiguration.ApplyDatabaseTimeouts(
-                RequiredConnectionString(configuration, PrimaryConnectionName), resilience, withStatementTimeout: true);
+            string primary = ResilienceConfiguration.ApplyConnectionDefaults(
+                RequiredConnectionString(configuration, PrimaryConnectionName), resilience, resilience.ApiPrimaryMaxPoolSize, withStatementTimeout: true);
 
             // Registered by factory, not by instance: the container disposes only objects it creates itself,
             // and a data source owns a connection pool (found by CA2000).
@@ -67,10 +67,10 @@ namespace UrlShortener.Infrastructure.Persistence
             ArgumentNullException.ThrowIfNull(configuration);
 
             ResilienceOptions resilience = ResilienceConfiguration.Read(configuration);
-            string primary = ResilienceConfiguration.ApplyDatabaseTimeouts(
-                RequiredConnectionString(configuration, PrimaryConnectionName), resilience, withStatementTimeout: false);
-            string replicas = ResilienceConfiguration.ApplyDatabaseTimeouts(
-                RequiredConnectionString(configuration, ReplicasConnectionName), resilience, withStatementTimeout: false);
+            string primary = ResilienceConfiguration.ApplyConnectionDefaults(
+                RequiredConnectionString(configuration, PrimaryConnectionName), resilience, resilience.RedirectPrimaryMaxPoolSize, withStatementTimeout: false);
+            string replicas = ResilienceConfiguration.ApplyConnectionDefaults(
+                RequiredConnectionString(configuration, ReplicasConnectionName), resilience, resilience.RedirectReplicaMaxPoolSize, withStatementTimeout: false);
             services.AddSingleton(_ => new LinksPrimaryDataSource(NpgsqlDataSource.Create(primary)));
             services.AddSingleton(_ => new LinksReplicaDataSource(NpgsqlDataSource.Create(replicas)));
             services.AddSingleton<IRedirectLookup, NpgsqlRedirectLookup>();
