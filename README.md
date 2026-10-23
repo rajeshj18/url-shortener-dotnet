@@ -131,17 +131,17 @@ Run a test yourself (stack running): `bash scripts/load-test.sh redirect` (or `h
 | Observability | OpenTelemetry → Grafana (Prometheus, Tempo, Loki) ([ADR-0013](docs/adr/0013-observability-opentelemetry-grafana.md)) |
 | Services | One bounded context deployed as three services (Redirect, Api, AnalyticsWorker), each with its own image, on shared Clean Architecture layers ([ADR-0009](docs/adr/0009-service-decomposition-and-layering.md)) |
 | Platform | .NET 8, C# 11, classic object-oriented style ([ADR-0003](docs/adr/0003-platform-dotnet8-csharp11.md)) |
-| Local stack | `postgres:16-alpine`, `apache/kafka`, `grafana/otel-lgtm` (all open source, ~3 GB RAM) |
+| Local stack | Stage 1: `postgres:16.15-alpine`, `grafana/otel-lgtm:0.37.0`, Api, Redirect (all open source). Stage 2 adds `apache/kafka` and the AnalyticsWorker. |
 
 ## Documentation map
 
 | Document | What it covers | Status |
 |---|---|---|
-| [docs/03-architecture.md](docs/03-architecture.md) | **HLD**: components, flows, deployment, failure modes, observability, engineering workflow | Draft |
-| [docs/02-system-design.md](docs/02-system-design.md) | **Capacity, SLO/SLA and LLD**: API contract, SQL schema, classes, algorithms, validation, configuration | Draft |
+| [docs/03-architecture.md](docs/03-architecture.md) | **HLD**: components, flows, deployment, failure modes, observability, engineering workflow | Current for stage 1 (DOC-01) |
+| [docs/02-system-design.md](docs/02-system-design.md) | **Capacity, SLO/SLA and LLD**: API contract, SQL schema, classes, algorithms, validation, configuration | Current for stage 1, with implementation notes per task |
 | [docs/adr/](docs/adr/README.md) | 13 architecture decision records | All 13 Accepted |
 | [docs/assumptions.md](docs/assumptions.md) | Assumptions register (we proceeded without external clarification) | Living document |
-| [docs/scenarios/](docs/scenarios/README.md) | Greenfield, brownfield and ambiguous scenarios | Planned |
+| [docs/scenarios/](docs/scenarios/README.md) | Greenfield, brownfield and ambiguous scenarios | Scenario 1 [done](docs/scenarios/01-greenfield.md); 2 and 3 planned |
 | [docs/ai-usage/traceability-log.md](docs/ai-usage/traceability-log.md) | What the AI produced and whether it was accepted, edited or rejected | Living document |
 | [docs/01-requirements.md](docs/01-requirements.md) | Problem statement, functional (FR) and non-functional (NFR) requirements, out of scope | Draft, including the traceability matrix to the brief |
 | [docs/04-task-breakdown.md](docs/04-task-breakdown.md) | Staged plan (core → lean → full), definition of done incl. test-metrics gate, tasks, critical path, estimates | Approved |
@@ -174,5 +174,6 @@ License: [MIT](LICENSE).
 - **.NET 8 support ends on 10 Nov 2026.** Upgrading to .NET 10 mostly means changing the target framework.
 - Automatic database failover isn't demonstrated locally (it would need Patroni and etcd). The demo stops and restarts the primary to show the services' side of a failover.
 - Production scale (35K reads/s) can't be reproduced locally. Sizing is extrapolated from measured per-node results ([load test](docs/perf/v1-load-test.md)).
+- **No replica-lag monitor yet:** the LLD's `ReplicaLagMonitor` (drop replicas lagging > 2 s) isn't built, because locally the replicas are the primary. It's needed before running against real replicas.
 - **Connections at scale:** instances × pool caps must stay under PostgreSQL's `max_connections` (LLD §6.7). The ~24 Redirect instances the sizing implies need a connection pooler (e.g. PgBouncer) or a higher limit; not built in v1.
 - Assumptions are unconfirmed by the requester. See the [assumptions register](docs/assumptions.md).

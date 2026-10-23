@@ -33,7 +33,7 @@ Target: **100M new URLs/day** and a **10:1 read:write ratio** (A-10, A-11), in a
 
 **What this means for the design:**
 - A single PostgreSQL primary handles the write rate easily (~3.5K/s).
-- Reads are spread across read replicas. At ~5–10K point reads/s per replica, that's about **4–8 replicas at peak** (to be confirmed by the load test).
+- Reads are spread across read replicas. At ~5–10K point reads/s per replica, that's about **4–8 replicas at peak**. The v1 load test (TSK-12) measured ~0.2 ms of PostgreSQL CPU per lookup, i.e. ≈ 47% of a 4-vCPU replica with 4 replicas at peak ([results](perf/v1-load-test.md)); the application tier, not the database, is the per-instance limit.
 - Storage fits on one node for **~1.5–2 years**. Citus is added when the ADR-0004 thresholds are reached.
 - A laptop can't reproduce 35K/s, so cluster size is **extrapolated from measured per-node throughput and p99**.
 
@@ -197,6 +197,8 @@ The rollup tables are partitioned **by month** on `bucket_hour`, which keeps the
 **Replica health:** a background `ReplicaLagMonitor` checks each replica's lag
 (`now() - pg_last_xact_replay_timestamp()`). Replicas lagging more than 2 s are removed from the read pool.
 This protects the 5 s delete SLO.
+**Not built in stage 1:** locally the "replicas" are the primary itself, so there is no lag to watch. The monitor
+is needed before running against real replicas (a known limitation in the README).
 
 ### 4.4 Database users (least privilege, ADR-0009)
 | User | Rights |
@@ -212,14 +214,20 @@ This protects the 5 s delete SLO.
 src/
   UrlShortener.Domain/            ShortUrl (entity), ShortCode, LongUrl, CustomAlias (value objects),
                                   LinkState, domain exceptions — no framework dependencies
-  UrlShortener.Application/       Use cases (handlers), ports (interfaces), DTOs (records), validation rules
-  UrlShortener.Infrastructure/    Persistence/ (EF Core LinksDbContext, AnalyticsDbContext, repositories,
-                                  ReplicaLagMonitor), Encoding/ (Feistel, Base62, ShortCodeGenerator),
-                                  Messaging/ (Kafka producer/consumer), Caching/ (only if ADR-0006 triggers)
-  UrlShortener.Api/               ShortUrlsController, StatsController, ApiKeyAuthenticationHandler,
-                                  ProblemDetails mapping, rate-limit policies
+  UrlShortener.Application/       Ports/ (interfaces), ShortUrls/ (create, get, delete use cases, request hash,
+                                  self-link check), Redirects/ (resolve use case, ClickEvent, classification)
+  UrlShortener.Infrastructure/    Persistence/ (EF Core LinksDbContext, migrations, repositories, idempotency store,
+                                  unit of work, Npgsql redirect lookup), ShortCodes/ (Feistel, Base62, generator,
+                                  leaser, startup check), Resilience/ (breakers, retry rule, timeouts),
+                                  Housekeeping/ (idempotency cleanup), Redirects/ (fallback budget, no-op click
+                                  publisher), Web/ (exception handlers, API-key authentication, timeouts),
+                                  Observability/ (OpenTelemetry, the UrlShortener meter)
+  UrlShortener.Api/               ShortUrlsController, request contracts, OpenAPI setup
   UrlShortener.Redirect/          RedirectController
-  UrlShortener.AnalyticsWorker/   ClickEventConsumerService (BackgroundService), ClickAggregator
+  UrlShortener.AnalyticsWorker/   placeholder host (stage 2: ClickEventConsumerService, ClickAggregator)
+
+Stage 2 adds Persistence/Analytics (AnalyticsDbContext) and Messaging/ (Kafka); Caching/ only if ADR-0006 triggers
+(it didn't, TSK-12).
 tests/
   UrlShortener.UnitTests/  UrlShortener.IntegrationTests/ (Testcontainers: PostgreSQL, Kafka)
   UrlShortener.ArchitectureTests/  UrlShortener.Benchmarks/ (BenchmarkDotNet)  load/ (k6 scripts)
@@ -629,7 +637,7 @@ Implemented as separate `IUrlValidationRule` classes so the ambiguous scenario c
 | `ConnectionStrings:LinksReplicas` | `Host=links-ro.internal;Database=links;Username=redirect;Target Session Attributes=prefer-standby;Load Balance Hosts=true` | Reader endpoint. Locally: `Host=postgres`. |
 | `ConnectionStrings:Analytics` | `Host=analytics-rw.internal;Database=analytics;Username=worker;Target Session Attributes=read-write` | A separate instance in production |
 | `Resilience:*` | `RequestTimeout`, `ConnectTimeoutSeconds` (2), `CommandTimeoutSeconds` (1), `StatementTimeoutMilliseconds` (2000), `RetryDelay` (100 ms), `BreakerFailureRatio` (0.5), `BreakerSamplingDuration` (10 s), `BreakerMinimumThroughput` (20), `BreakerBreakDuration` (5 s) ± `BreakerBreakJitter` (1 s), `IdempotencyCleanupInterval` (5 min), `IdempotencyCleanupBatchSize` (50,000), `IdempotencyCleanupBatchTimeoutSeconds` (10), `ApiPrimaryMaxPoolSize` (30), `RedirectReplicaMaxPoolSize` (30), `RedirectPrimaryMaxPoolSize` (10) | One place to tune §6.6/§6.7 (TSK-11, TSK-11b). Values in a connection string win. Size the caps so instances × caps stays well below `max_connections`. |
-| `Redirect:PrimaryFallbackPerSecond` / `MaxReplicaLagSeconds` | `500` / `2` | |
+| `Redirect:PrimaryFallbackPerSecond` / `MaxReplicaLagSeconds` | `500` / `2` | `MaxReplicaLagSeconds` is unused until the `ReplicaLagMonitor` exists (§4.3) |
 | `ShortCode:DeploymentRegionIndex` / `LeaseSize` | `0` / `10000` | Set once per regional deployment; instances created by autoscaling inherit it |
 | `ShortCode:FeistelKey` | *(environment / secret store only)* | Required; a passphrase of at least 32 characters, hashed to the 32-byte key (§6.4). **Must never change** once in use (ADR-0005). Locally: `SHORTCODE_FEISTEL_KEY` in `.env` |
 | `Kafka:BootstrapServers` / `Topic` / `ConsumerGroup` | `kafka:9092` / `click-events.v1` / `analytics-worker` | |
