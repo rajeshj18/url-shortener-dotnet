@@ -47,7 +47,8 @@ def read_coverage(path, assemblies):
         name = package.get("name")
         if name not in result:
             continue
-        lines = list(package.iter("line"))
+        # Cobertura lists each line twice: under <method> and under <class>. Count only class-level lines.
+        lines = [line for cls in package.iter("class") for line in cls.findall("lines/line")]
         covered = sum(1 for line in lines if int(line.get("hits", "0")) > 0)
         previous_covered, previous_total = result[name]
         result[name] = (previous_covered + covered, previous_total + len(lines))
