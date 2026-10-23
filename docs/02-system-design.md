@@ -404,6 +404,12 @@ Expired keys are deleted by the cleanup task in §6.6. Because of the 24 h check
    - `Deleted` or `Expired` → `410` (`Cache-Control: public, max-age=86400`)
    - `Active` → `302` (`Cache-Control: no-store`). `TryPublish(ClickEvent)` is called only for `GET` requests from non-bot clients. `HEAD` requests and link-preview bots get the same response but no click event (ADR-0007).
 
+**Implementation notes (TSK-09):**
+- `ResolveShortUrlHandler` (Application) decides; `RedirectController` only maps the outcome to the status and `Cache-Control`. Routes are single-segment, so `/health/*` is never captured; reserved paths such as `/health` fail the code-shape check and get `404`.
+- **Primary-fallback budget:** a token bucket per instance (`TokenBucketFallbackBudget`, `Redirect:PrimaryFallbackPerSecond`, default 500) with a one-second burst, driven by `TimeProvider` so it is testable without waiting. Once it's spent, a replica miss is `404` + `no-store` without touching the primary (TSK-09 D2).
+- **Bots** (A-34, D3): a short User-Agent token list (`bot`, `crawler`, `spider`, `preview`, `facebookexternalhit`, `curl/`, …); a missing User-Agent counts as a bot. Device classes: `mobile`, `tablet`, `desktop`.
+- **`ClickEvent`**: `eventId` is a UUIDv7 (time-ordered; .NET 8 has no built-in generator), `referrerHost` keeps only the host (lower-case, punycode). Stage 1's `NoOpClickEventPublisher` discards events and counts them as `click_events_discarded` (meter `UrlShortener`); TSK-23 adds the Kafka publisher (D1).
+
 ### 6.3 Delete
 Check ownership on the primary (`IShortUrlRepository.FindByCodeAsync`; return `404` if it isn't the owner's link) → `ShortUrl.MarkDeleted` → `SaveDeletionAsync` → `204`.
 Calling it again on an already-deleted link returns `204`. If a cache exists, purge the entry before returning.

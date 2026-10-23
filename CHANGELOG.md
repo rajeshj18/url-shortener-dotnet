@@ -16,6 +16,11 @@ Each entry names the task (`TSK-xx`) that made the change.
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
 ### Added
+- **Redirect: `GET` / `HEAD /{code}`** in the Redirect service (TSK-09, LLD §6.2, ADR-0007).
+  - `302` + `Location` + `Cache-Control: no-store`; `404` (`no-store`) for unknown or malformed codes, without a database call for malformed ones; `410` (`public, max-age=86400`) for deleted links.
+  - Replica lookup with a capped primary fallback (token bucket, `Redirect:PrimaryFallbackPerSecond` = 500) for read-your-writes.
+  - `ClickEvent v1` (UUIDv7 `eventId`, referrer host only, device class) for `GET` from non-bots; `HEAD` and bots get no event. Stage 1 discards events and counts them (`click_events_discarded`, meter `UrlShortener`).
+  - Tests: 42 unit and 10 API tests (create through the Api, then redirect through the Redirect service).
 - **Create short links: `POST /api/v1/urls`** (TSK-08, LLD §6.1, ADR-0010).
   - Generated 7-character code or custom alias; `201` + `Location` + body; `409` for a taken alias (no read before the insert, so concurrent requests never get `500`).
   - API-key authentication (`X-Api-Key`, SHA-256 hashes in configuration, constant-time comparison) as ASP.NET Core authentication middleware.
