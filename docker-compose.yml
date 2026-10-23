@@ -64,6 +64,13 @@ services:
       # Feistel passphrase (ADR-0005). Required, at least 32 characters, and it must never change once codes exist.
       ShortCode__FeistelKey: "${SHORTCODE_FEISTEL_KEY:?set SHORTCODE_FEISTEL_KEY in .env (see .env.example)}"
       ShortCode__DeploymentRegionIndex: "0"
+      # Short links point at the Redirect service (LLD §8).
+      PublicBaseUrl: http://localhost:5081
+      # One local client (TSK-08 D1): only the SHA-256 of its key is configured. The dev key is in the README.
+      ApiKeys__Clients__0__OwnerId: local-dev
+      ApiKeys__Clients__0__KeyHash: "${DEV_CALLER_HASH:?set DEV_CALLER_HASH in .env (see .env.example)}"
+      # Swagger UI at http://localhost:5080/swagger (off unless enabled, TSK-08 D5).
+      OpenApi__EnableUi: "true"
     ports:
       - "127.0.0.1:5080:8080"
     depends_on:
