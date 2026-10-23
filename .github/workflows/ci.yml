@@ -35,6 +35,11 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: "Gate: ID block registry (no overlaps, inside 62^7) and its script tests"
+        run: |
+          python3 -m unittest discover -s scripts/ci/tests -v
+          python3 scripts/ci/check-id-blocks.py config/id-blocks.json
+
       - name: Restore (NuGet audit fails the build on known vulnerabilities)
         run: dotnet restore UrlShortener.sln
 
