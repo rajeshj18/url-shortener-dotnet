@@ -102,6 +102,12 @@ def main():
     report = "\n".join(lines)
     print(report)
 
+    # GitHub annotations: shown on the PR and readable through the public API, so a red gate is
+    # diagnosable without opening the job log.
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        for problem in problems:
+            print(f"::error title=Test-metrics gate::{problem}")
+
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as handle:
