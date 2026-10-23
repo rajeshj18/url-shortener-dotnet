@@ -27,3 +27,6 @@ coverage*/
 !.vscode/extensions.json
 Thumbs.db
 .DS_Store
+
+# BenchmarkDotNet output (results are recorded in tests/UrlShortener.Benchmarks/README.md)
+BenchmarkDotNet.Artifacts/
