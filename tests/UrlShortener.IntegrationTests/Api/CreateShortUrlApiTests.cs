@@ -97,7 +97,8 @@ namespace UrlShortener.IntegrationTests.Api
         [InlineData("{}", DomainErrorCodes.UrlRequired)]
         [InlineData("{\"longUrl\":\"https://example.com/\",\"customAlias\":\"spring1\"}", DomainErrorCodes.AliasGeneratedShape)]
         [InlineData("{\"longUrl\":\"https://example.com/\",\"customAlias\":\"health\"}", DomainErrorCodes.AliasReserved)]
-        [InlineData("{\"longUrl\":\"https://example.com/\",\"expiresAt\":\"2030-01-01T00:00:00Z\"}", ApplicationErrorCodes.ExpiryUnsupported)]
+        [InlineData("{\"longUrl\":\"https://example.com/\",\"expiresAt\":\"2020-01-01T00:00:00Z\"}", DomainErrorCodes.ExpiryPast)]
+        [InlineData("{\"longUrl\":\"https://example.com/\",\"expiresAt\":\"2999-01-01T00:00:00Z\"}", DomainErrorCodes.ExpiryTooFar)]
         public async Task Invalid_request_is_400_with_its_error_code(string json, string expectedCode)
         {
             using HttpResponseMessage response = await PostRawAsync(_one, json, null);
