@@ -44,6 +44,7 @@ namespace UrlShortener.Infrastructure.Observability
                     .AddHttpClientInstrumentation()
                     .AddOtlpExporter(options => options.Endpoint = endpoint))
                 .WithMetrics(metrics => metrics
+                    .AddMeter(UrlShortenerMeters.Name)
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddOtlpExporter(options => options.Endpoint = endpoint))
