@@ -15,6 +15,14 @@ Each entry names the task (`TSK-xx`) that made the change.
 - CI: gitleaks scans only the history being merged; runners pinned to `ubuntu-24.04`; the gate emits annotations (TSK-04).
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
+### Added
+- **v1 load test and CI performance gate** (TSK-12, ADR-0006).
+  - k6 scripts (`tests/load/`): redirect, hot key, scan, create, and a 30 s CI smoke; each warms up for 15 s and measures against the SLO thresholds.
+  - `scripts/load-test.sh` / `.ps1` run them in `grafana/k6:2.3.0` on the compose network.
+  - Results: redirect p99 3.8 ms at 1,500/s, create p99 7.1 ms at 600/s, 0% errors ([docs/perf/v1-load-test.md](docs/perf/v1-load-test.md)). ADR-0006: no cache for v1.
+  - CI job `perf-smoke` (compose stack + k6 smoke on every PR).
+  - Metric `redirect_primary_fallback` (`outcome=granted|denied`) for the fallback budget.
+
 ### Fixed
 - **Connection pools are capped** (TSK-11b, LLD §6.7): Api writer 30, Redirect replicas 30, Redirect fallback 10 (`Resilience:*MaxPoolSize`). Uncapped pools (Npgsql's default of 100 each) exhausted PostgreSQL's 100 connections under sustained load, found by the TSK-12 load test: at 1,500 redirects/s, p99 went from 827 ms with 12% errors to 3.8 ms with none.
 

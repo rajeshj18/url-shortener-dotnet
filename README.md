@@ -10,7 +10,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 > - The design is complete: requirements, HLD, LLD and 13 accepted ADRs.
 > - The solution skeleton, the shared middleware and health endpoints, and the local Docker stack are in place (TSK-01 to TSK-03).
 > - The domain model, persistence and short-code generation are in place (TSK-05 to TSK-07).
-> - **Create, redirect, metadata and delete work** (`POST /api/v1/urls`, TSK-08; `GET /{code}`, TSK-09; `GET`/`DELETE /api/v1/urls/{code}`, TSK-10). They have timeouts, retries and circuit breakers (TSK-11). The v1 load test follows in TSK-12; see the [task breakdown](docs/04-task-breakdown.md).
+> - **Create, redirect, metadata and delete work** (`POST /api/v1/urls`, TSK-08; `GET /{code}`, TSK-09; `GET`/`DELETE /api/v1/urls/{code}`, TSK-10). They have timeouts, retries and circuit breakers (TSK-11), and a v1 load test with a k6 smoke gate in CI (TSK-12). Scenario 1's write-up follows in TSK-13; see the [task breakdown](docs/04-task-breakdown.md).
 
 ## Run locally
 
@@ -105,6 +105,16 @@ curl -i -X POST http://localhost:5080/api/v1/urls \
 - `GET /api/v1/urls/<code>` shows your link; `DELETE /api/v1/urls/<code>` deletes it (`204`), after which the short URL answers `410 Gone`. Other clients get `404` for your links.
 - **Open the returned `shortUrl`** (`http://localhost:5081/<code>`) in a browser: it redirects with `302`. `curl -I http://localhost:5081/<code>` shows the status and `Cache-Control: no-store` without following it. Unknown codes give `404`.
 
+## Performance
+
+The v1 load test ([results](docs/perf/v1-load-test.md)), per instance on a laptop: **redirect p99 3.8 ms at
+1,500 req/s**, create p99 7.1 ms at 600 req/s, 0% errors; the database isn't the bottleneck, so v1 has no cache
+(ADR-0006). Every PR also runs a 30 s k6 smoke against the compose stack (`perf-smoke`, SLO thresholds).
+
+Run a test yourself (stack running): `bash scripts/load-test.sh redirect` (or `hot-key`, `scan`, `create`,
+`smoke`), or `powershell -ExecutionPolicy Bypass -File scripts\load-test.ps1 redirect`. `RATE=` and
+`DURATION=` override the defaults.
+
 ## Design at a glance
 
 | Aspect | Choice |
@@ -163,5 +173,6 @@ License: [MIT](LICENSE).
 - **Storage:** one PostgreSQL node fits about 1.5–2 years of data. After that, Citus is required (ADR-0004).
 - **.NET 8 support ends on 10 Nov 2026.** Upgrading to .NET 10 mostly means changing the target framework.
 - Automatic database failover isn't demonstrated locally (it would need Patroni and etcd). The demo stops and restarts the primary to show the services' side of a failover.
-- Production scale (35K reads/s) can't be reproduced locally. Sizing is extrapolated from measured per-node results.
+- Production scale (35K reads/s) can't be reproduced locally. Sizing is extrapolated from measured per-node results ([load test](docs/perf/v1-load-test.md)).
+- **Connections at scale:** instances × pool caps must stay under PostgreSQL's `max_connections` (LLD §6.7). The ~24 Redirect instances the sizing implies need a connection pooler (e.g. PgBouncer) or a higher limit; not built in v1.
 - Assumptions are unconfirmed by the requester. See the [assumptions register](docs/assumptions.md).
