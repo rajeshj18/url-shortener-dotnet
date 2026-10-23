@@ -1,0 +1,16 @@
+# Keeps SHA-pinned GitHub Actions and NuGet packages current (TSK-04).
+# Each update arrives as a PR and goes through the same gates and engineer review (ADR-0012).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"

@@ -1,0 +1,7 @@
+# gitleaks findings reviewed by the engineer and accepted as FALSE POSITIVES (TSK-04).
+# Each entry ignores exactly one finding (commit:file:rule:line). A new finding still fails CI.
+#
+# 10c2bf1: a test constant whose name contained "Secret" held a deliberate dummy marker string for checking
+# that exception details never leak. It is not a credential. Renamed to InternalDetailMarker in TSK-04;
+# the public main history can't be rewritten.
+10c2bf116394cd527059dc824134fc97774a07ce:tests/UrlShortener.UnitTests/Infrastructure/Web/ProblemDetailsExceptionHandlerTests.cs:generic-api-key:18
