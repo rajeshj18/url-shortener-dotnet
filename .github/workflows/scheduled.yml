@@ -1,0 +1,55 @@
+# Scheduled security scans of main (ADR-0012 §5). New vulnerabilities are published even when our
+# code doesn't change, so these run on a timer as well as in CI.
+name: Scheduled scans
+
+on:
+  schedule:
+    - cron: "17 3 * * *"   # daily 03:17 UTC: dependency scan
+    - cron: "41 4 * * 1"   # weekly Monday 04:41 UTC: CodeQL with the latest queries
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  dependencies:
+    name: scheduled-dependencies
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *'
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest moves to Ubuntu 26 from 2026-10-19 (GitHub notice)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore UrlShortener.sln
+      - name: Scan direct and transitive packages for known vulnerabilities
+        run: |
+          dotnet list UrlShortener.sln package --vulnerable --include-transitive --format json > vulnerable.json
+          python3 scripts/ci/check-vulnerable-packages.py vulnerable.json
+
+  codeql:
+    name: scheduled-codeql
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '41 4 * * 1'
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest moves to Ubuntu 26 from 2026-10-19 (GitHub notice)
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: csharp
+          build-mode: manual
+          queries: security-and-quality
+      - run: dotnet build UrlShortener.sln -c Release
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:csharp

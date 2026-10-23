@@ -31,6 +31,13 @@ A URL shortener service (.NET 8) plus the engineer-led, AI-assisted workflow use
 - Add a `CHANGELOG.md` entry for every user-visible change.
 - **Before the engineer merges a PR:** ask for the **actual hours** and any **edits or rejections**, and record them in the log entry **on the branch**. Learned in TSK-01, where a merge before the update needed a follow-up PR.
 
+## CI (TSK-04)
+- The required checks are `build-test`, `codeql`, `secrets` and `dependencies` (`.github/workflows/ci.yml`). **Don't rename these jobs**: the `main` ruleset refers to them by name.
+- The gate fails on **any failed or skipped test**, and on **< 80% line coverage** of Domain/Application (`scripts/ci/check-test-results.py`).
+- **Pin every action to a full commit SHA**, with a version comment. Dependabot keeps the pins current.
+- Before pushing, run locally: `dotnet format --verify-no-changes`, `dotnet build`, `dotnet test`. Check real exit codes, not a pipe's.
+- gitleaks false positives go into `.gitleaksignore` by **exact fingerprint**, with a reason, and only after engineer review. Never weaken the rules.
+
 ## Confidentiality and secure AI usage (ADR-0011)
 - **Never read, quote or commit the assignment brief** (any `*.pdf` in the project folder), and never name the company or its classification marking.
 - **No secrets anywhere:** not in code, docs, prompts, tests or logs. Local development uses `.env.example` with throwaway values; real values come from the environment or a secret store.

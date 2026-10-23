@@ -1,5 +1,7 @@
 # URL Shortener: AI-Assisted Engineering
 
+[![CI](https://github.com/rajeshj18/url-shortener-dotnet/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rajeshj18/url-shortener-dotnet/actions/workflows/ci.yml)
+
 A URL shortener service (core APIs, analytics, reliability) built with **.NET 8**, together with the
 **AI-assisted engineering workflow** used to build it. Both are deliverables
 ([ADR-0001](docs/adr/0001-deliverable-scope-product-and-workflow.md)).

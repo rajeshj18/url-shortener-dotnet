@@ -15,7 +15,7 @@ namespace UrlShortener.UnitTests.Infrastructure.Web
     /// <summary>Proves AC9a of TSK-02: unhandled exceptions become safe RFC 7807 responses.</summary>
     public sealed class ProblemDetailsExceptionHandlerTests
     {
-        private const string SecretMessage = "internal-detail-marker-7f3a";
+        private const string InternalDetailMarker = "internal-detail-marker-7f3a";
 
         [Fact]
         public async Task TryHandleAsync_unhandled_exception_returns_500_problem_json_with_trace_id()
@@ -24,7 +24,7 @@ namespace UrlShortener.UnitTests.Infrastructure.Web
             DefaultHttpContext context = CreateContext("trace-abc");
             ProblemDetailsExceptionHandler handler = new ProblemDetailsExceptionHandler(NullLogger<ProblemDetailsExceptionHandler>.Instance);
 
-            bool handled = await handler.TryHandleAsync(context, new InvalidOperationException(SecretMessage), CancellationToken.None);
+            bool handled = await handler.TryHandleAsync(context, new InvalidOperationException(InternalDetailMarker), CancellationToken.None);
 
             handled.Should().BeTrue();
             context.Response.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
@@ -40,7 +40,7 @@ namespace UrlShortener.UnitTests.Infrastructure.Web
             DefaultHttpContext context = CreateContext("trace-def");
             ProblemDetailsExceptionHandler handler = new ProblemDetailsExceptionHandler(NullLogger<ProblemDetailsExceptionHandler>.Instance);
 
-            await handler.TryHandleAsync(context, new InvalidOperationException(SecretMessage), CancellationToken.None);
+            await handler.TryHandleAsync(context, new InvalidOperationException(InternalDetailMarker), CancellationToken.None);
 
             string body = await ReadBodyTextAsync(context);
             body.Should().NotContain("internal-detail-marker-7f3a");
