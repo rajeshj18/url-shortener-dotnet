@@ -53,5 +53,11 @@ namespace UrlShortener.Domain
 
         /// <summary>A timestamp is earlier than one it must follow (e.g. deleted before created).</summary>
         public const string TimeOrder = "time.order";
+
+        /// <summary>The expiry is not after the creation time (TSK-14).</summary>
+        public const string ExpiryPast = "expiry.past";
+
+        /// <summary>The expiry is more than 10 years after creation (TSK-14 D1): most likely a unit mistake.</summary>
+        public const string ExpiryTooFar = "expiry.too-far";
     }
 }

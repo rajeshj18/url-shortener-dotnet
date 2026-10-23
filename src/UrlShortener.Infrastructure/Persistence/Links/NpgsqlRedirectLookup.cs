@@ -14,7 +14,7 @@ namespace UrlShortener.Infrastructure.Persistence.Links
     public sealed class NpgsqlRedirectLookup : IRedirectLookup
     {
         // The only statement the Redirect user can run. It reads the view, never the table (ADR-0009).
-        private const string LookupSql = "SELECT long_url, deleted_at FROM redirect_lookup WHERE code = $1";
+        private const string LookupSql = "SELECT long_url, deleted_at, expires_at FROM redirect_lookup WHERE code = $1";
 
         private readonly LinksReplicaDataSource _replicas;
         private readonly LinksPrimaryDataSource _primary;
@@ -55,7 +55,8 @@ namespace UrlShortener.Infrastructure.Persistence.Links
 
             LongUrl target = LongUrl.Create(reader.GetString(0));
             LinkState state = await reader.IsDBNullAsync(1, cancellationToken) ? LinkState.Active : LinkState.Deleted;
-            return new RedirectTarget(code, target, state);
+            DateTimeOffset? expiresAt = await reader.IsDBNullAsync(2, cancellationToken) ? null : await reader.GetFieldValueAsync<DateTimeOffset>(2, cancellationToken);
+            return new RedirectTarget(code, target, state, expiresAt);
         }
     }
 }

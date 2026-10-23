@@ -6,6 +6,9 @@ Each entry names the task (`TSK-xx`) that made the change.
 
 ## [Unreleased]
 
+### Added
+- **Link expiry** (TSK-14, FR-04): optional `expiresAt` on create (future, at most 10 years ahead: `expiry.past`, `expiry.too-far`); after it, redirects answer `410` like deleted links; `expiresAt` in the create and metadata responses and in the idempotency hash. Expand-only migration `AddLinkExpiry` (nullable `expires_at`; `redirect_lookup` gains the column). `expiry.unsupported` is no longer emitted.
+
 ### Fixed
 - Docs: the HLD §3.2 redirect diagram failed to render on GitHub (a `;` inside a Mermaid message); HLD, LLD and README brought in line with what stage 1 built (DOC-01).
 

@@ -69,7 +69,8 @@ namespace UrlShortener.Application.ShortUrls
                 shortUrl.Target.Uri,
                 shortUrl.IsCustom,
                 shortUrl.CreatedAt,
-                shortUrl.DeletedAt);
+                shortUrl.DeletedAt,
+                shortUrl.ExpiresAt);
         }
     }
 

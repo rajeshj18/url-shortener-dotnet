@@ -210,7 +210,7 @@
           },
           "expiresAt": {
             "type": "string",
-            "description": "Not supported yet (link expiry arrives later); sending it returns \u0060400 expiry.unsupported\u0060.",
+            "description": "Optional expiry (ISO 8601 with an offset, e.g. \u00602027-01-01T00:00:00Z\u0060): after it the link answers \u0060410\u0060. Must be in the future (\u0060expiry.past\u0060) and at most 10 years ahead (\u0060expiry.too-far\u0060). Omit it for a link that never expires.",
             "format": "date-time",
             "nullable": true
           }
@@ -299,6 +299,11 @@
             "format": "date-time"
           },
           "deletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "expiresAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true

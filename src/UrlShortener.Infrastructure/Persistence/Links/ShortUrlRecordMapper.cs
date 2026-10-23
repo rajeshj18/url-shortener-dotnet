@@ -24,6 +24,7 @@ namespace UrlShortener.Infrastructure.Persistence.Links
                 IsCustom = shortUrl.IsCustom,
                 CreatedAt = shortUrl.CreatedAt,
                 DeletedAt = shortUrl.DeletedAt,
+                ExpiresAt = shortUrl.ExpiresAt,
             };
         }
 
@@ -38,7 +39,7 @@ namespace UrlShortener.Infrastructure.Persistence.Links
                 ? ShortCode.FromAlias(CustomAlias.Create(record.Code))
                 : ShortCode.FromGenerated(record.Code);
 
-            return ShortUrl.Rehydrate(code, LongUrl.Create(record.Target), record.OwnerId, record.CreatedAt, record.DeletedAt);
+            return ShortUrl.Rehydrate(code, LongUrl.Create(record.Target), record.OwnerId, record.CreatedAt, record.DeletedAt, record.ExpiresAt);
         }
     }
 }

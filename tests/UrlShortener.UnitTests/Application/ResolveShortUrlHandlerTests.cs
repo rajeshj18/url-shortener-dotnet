@@ -102,6 +102,20 @@ namespace UrlShortener.UnitTests.Application
         }
 
         [Fact]
+        public async Task Expired_link_is_gone_and_publishes_nothing()
+        {
+            _lookup.Replica["old-sale"] = new RedirectTarget(ParseCode("old-sale"), LongUrl.Create("https://example.com/sale"), LinkState.Active, _time.Now.AddSeconds(-1));
+            _lookup.Replica["new-sale"] = new RedirectTarget(ParseCode("new-sale"), LongUrl.Create("https://example.com/sale"), LinkState.Active, _time.Now.AddSeconds(1));
+
+            ResolveResult expired = await Resolve("old-sale", Browser, null);
+            ResolveResult notYet = await Resolve("new-sale", Browser, null);
+
+            expired.Outcome.Should().Be(ResolveOutcome.Gone);
+            notYet.Outcome.Should().Be(ResolveOutcome.Redirect);
+            _publisher.Events.Should().ContainSingle("only the active link counts a click").Which.Code.Should().Be("new-sale");
+        }
+
+        [Fact]
         public async Task Head_redirects_but_publishes_nothing()
         {
             _lookup.Replica["aZ3k9Qx"] = Target("aZ3k9Qx", "https://example.com/a", LinkState.Active);
@@ -149,6 +163,12 @@ namespace UrlShortener.UnitTests.Application
 
             Func<Task> nullRequest = () => _handler.ResolveAsync(null!, CancellationToken.None);
             await nullRequest.Should().ThrowAsync<ArgumentNullException>();
+        }
+
+        private static ShortCode ParseCode(string code)
+        {
+            ShortCode.TryParse(code, out ShortCode? parsed).Should().BeTrue();
+            return parsed!;
         }
 
         private static RedirectTarget Target(string code, string url, LinkState state)

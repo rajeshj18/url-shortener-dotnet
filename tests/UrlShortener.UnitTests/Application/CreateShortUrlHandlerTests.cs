@@ -175,11 +175,36 @@ namespace UrlShortener.UnitTests.Application
         }
 
         [Fact]
-        public async Task Expiry_is_rejected_until_it_is_supported()
+        public async Task Future_expiry_is_stored_and_returned()
         {
-            Func<Task> act = () => Handle(new CreateShortUrlCommand(Owner, Url, null, _time.Now.AddDays(1), null));
+            DateTimeOffset expiresAt = _time.Now.AddDays(30);
 
-            (await act.Should().ThrowAsync<DomainValidationException>()).Which.Code.Should().Be(ApplicationErrorCodes.ExpiryUnsupported);
+            CreateShortUrlResult result = await Handle(new CreateShortUrlCommand(Owner, Url, "expiring-link", expiresAt, null));
+
+            result.Body!.ExpiresAt.Should().Be(expiresAt);
+            _repository.Links["expiring-link"].ExpiresAt.Should().Be(expiresAt);
+        }
+
+        [Theory]
+        [InlineData(0, DomainErrorCodes.ExpiryPast)]
+        [InlineData(-60, DomainErrorCodes.ExpiryPast)]
+        [InlineData(60 * 24 * 366 * 11, DomainErrorCodes.ExpiryTooFar)]
+        public async Task Invalid_expiry_fails_before_any_database_work(int minutesFromNow, string expectedCode)
+        {
+            Func<Task> act = () => Handle(new CreateShortUrlCommand(Owner, Url, null, _time.Now.AddMinutes(minutesFromNow), "key-1"));
+
+            (await act.Should().ThrowAsync<DomainValidationException>()).Which.Code.Should().Be(expectedCode);
+            _unitOfWork.Begun.Should().Be(0, "no idempotency key is claimed for a 400");
+        }
+
+        [Fact]
+        public async Task Same_key_with_a_different_expiry_is_key_reused()
+        {
+            await Handle(new CreateShortUrlCommand(Owner, Url, null, _time.Now.AddDays(1), "key-1"));
+
+            CreateShortUrlResult result = await Handle(new CreateShortUrlCommand(Owner, Url, null, _time.Now.AddDays(2), "key-1"));
+
+            result.Outcome.Should().Be(CreateShortUrlOutcome.KeyReused);
         }
 
         [Fact]
