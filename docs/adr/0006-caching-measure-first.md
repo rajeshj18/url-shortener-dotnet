@@ -36,9 +36,25 @@
 ## Consequences
 The cache, if needed, becomes a brownfield enhancement with measured before/after results.
 
+## Results: v1 load test (TSK-12, 2026-10-23)
+Full method and numbers: [`docs/perf/v1-load-test.md`](../perf/v1-load-test.md). Laptop-scale, per instance; the
+load generator shared the machine.
+
+| Criterion | Result | Verdict |
+|---|---|---|
+| Redirect p99 ≤ 50 ms at target load per replica | 3.8 ms at 1,500/s (the highest rate confirmed locally); PostgreSQL 0.32 cores at that rate | ✅ at the tested rate, extrapolated beyond it |
+| Replica CPU < 70% at peak with the planned replicas | ≈ 7.5 cores of lookups at 35K/s → ≈ 47% of a 4-vCPU replica with 4 replicas | ✅ extrapolated |
+| Hot key, 30% on one code | p99 2.9 ms | ✅ |
+| Scan of random codes within the fallback budget | ~500 fallbacks/s granted, the rest refused; p99 3.4 ms | ✅ |
+
+**Outcome: no cache for v1; TSK-30 is not triggered.** The measured bottleneck is CPU in the stateless Redirect
+process (~1 ms per request, vs ~0.2 ms in PostgreSQL), which more instances fix and a cache wouldn't. To be
+repeated on production-sized nodes before launch.
+
 ## History
 - 2026-10-21 · Proposed · First drafted as a Valkey cache from v1 with synchronous invalidation.
 - 2026-10-21 · Revised to "measure first" after the engineer asked whether a cache is needed at all.
 - 2026-10-21 · **Accepted** · Engineer chose measure first.
 - 2026-10-21 · Context updated for PostgreSQL read replicas (hot keys spread across all replicas); "more replicas" added as the first lever.
 - 2026-10-23 · Naming note (TSK-06 R2, no change to the decision) · The repository was split by interface segregation. If the cache is added, it decorates **`IRedirectLookup`** (`CachedRedirectLookup`) instead of `IUrlRepository`, which no longer exists. See LLD §5.
+- 2026-10-23 · Results recorded (TSK-12, no change to the decision) · All four criteria met where measurable; no cache for v1. The test also exposed uncapped connection pools (fixed in TSK-11b).
