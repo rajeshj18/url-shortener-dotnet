@@ -6,8 +6,8 @@ namespace UrlShortener.Infrastructure.Web
 {
     /// <summary>
     /// Registers and wires the cross-cutting middleware shared by every web service, so that
-    /// controllers only map HTTP to use cases. Later tasks add authentication (TSK-08),
-    /// request timeouts (TSK-11) and rate limiting (TSK-19) here.
+    /// controllers only map HTTP to use cases. Authentication is wired by
+    /// <c>AddApiKeyAuthentication</c> (TSK-08, Api only). Later tasks add request timeouts (TSK-11) and rate limiting (TSK-19) here.
     /// </summary>
     public static class WebPipelineExtensions
     {
@@ -19,6 +19,10 @@ namespace UrlShortener.Infrastructure.Web
             ArgumentNullException.ThrowIfNull(services);
 
             services.AddProblemDetails();
+
+            // Handlers run in registration order: specific mappings first, the catch-all 500 last.
+            services.AddExceptionHandler<DomainValidationExceptionHandler>();
+            services.AddExceptionHandler<IdSpaceExhaustedExceptionHandler>();
             services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
             return services;
         }

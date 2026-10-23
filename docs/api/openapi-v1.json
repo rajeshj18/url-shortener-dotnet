@@ -1,0 +1,202 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "URL Shortener API",
+    "description": "Management API: create short links. Errors are RFC 7807 problems with a traceId and stable error codes.",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/v1/urls": {
+      "post": {
+        "tags": [
+          "ShortUrls"
+        ],
+        "summary": "Creates a short link with a generated code or a custom alias.",
+        "description": "Send an \u0060Idempotency-Key\u0060 (a UUID per user action) to retry safely: within 24 hours the same key and\nrequest return the original response with \u0060Idempotent-Replayed: true\u0060; the same key with a different\nrequest returns \u0060422\u0060. Every create without a key makes a new link, even for the same long URL.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional, 1\u2013128 printable ASCII characters.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The long URL and optional alias.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShortUrlRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedShortUrl"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateShortUrlRequest": {
+        "type": "object",
+        "properties": {
+          "longUrl": {
+            "type": "string",
+            "description": "JSON \u0060longUrl\u0060: the URL to shorten, absolute \u0060http\u0060/\u0060https\u0060, at most 2,048 characters.\n            A string, not System.Uri, so invalid input reaches validation and gets its error code.",
+            "nullable": true
+          },
+          "customAlias": {
+            "type": "string",
+            "description": "Optional alias: 4\u201330 characters \u0060[A-Za-z0-9_-]\u0060, not exactly 7 Base62 characters, not a reserved path.",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "Not supported yet (link expiry arrives later); sending it returns \u0060400 expiry.unsupported\u0060.",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Body of \u0060POST /api/v1/urls\u0060 (LLD \u00A73). Fields are nullable on purpose: missing or invalid values reach\nthe use case, which answers with a stable error code instead of a generic model-binding error."
+      },
+      "CreatedShortUrl": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "shortUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "longUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": {}
+      }
+    },
+    "securitySchemes": {
+      "ApiKey": {
+        "type": "apiKey",
+        "description": "The client\u0027s API key.",
+        "name": "X-Api-Key",
+        "in": "header"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKey": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "ShortUrls"
+    }
+  ]
+}

@@ -7,6 +7,8 @@ Each entry names the task (`TSK-xx`) that made the change.
 ## [Unreleased]
 
 ### Changed
+- Integration tests share one in-memory Api host (`PostgresFixture.SharedApi`): more than 20 hosts in one process trip EF Core's `ManyServiceProvidersCreatedWarning` (TSK-08).
+- The Api test host captures logs through DI, so tests can assert what is never logged (TSK-08).
 - The Api needs its database to start (short-code startup check). The health test for a lost database now drops the database after startup; integration tests that change `id_blocks` use scratch databases (TSK-07).
 - CI gate: count Cobertura lines once per class (lines are listed under both `<method>` and `<class>`). Coverage counts were doubled; the percentages were unaffected (TSK-05).
 - Dependabot ignores FluentAssertions ≥ 8 (commercial licence); 7.x stays (TSK-04 follow-up).
@@ -14,6 +16,15 @@ Each entry names the task (`TSK-xx`) that made the change.
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
 ### Added
+- **Create short links: `POST /api/v1/urls`** (TSK-08, LLD §6.1, ADR-0010).
+  - Generated 7-character code or custom alias; `201` + `Location` + body; `409` for a taken alias (no read before the insert, so concurrent requests never get `500`).
+  - API-key authentication (`X-Api-Key`, SHA-256 hashes in configuration, constant-time comparison) as ASP.NET Core authentication middleware.
+  - Idempotency: `Idempotency-Key` (1–128 printable ASCII) scoped per client; replay returns the stored body with `Idempotent-Replayed: true`; a different request with the same key → `422`; keys honoured for 24 h; only successful creates are stored.
+  - RFC 7807 errors with `traceId` and stable codes (`errors: [{ code, message }]`); `IdSpaceExhaustedException` → `503` + `Retry-After: 5`.
+  - Self-link check (`url.self-link`); `expiresAt` rejected with `expiry.unsupported` until expiry exists (TSK-14).
+  - OpenAPI document (Swashbuckle 10.2.3) committed as `docs/api/openapi-v1.json` with a drift test; Swagger UI at `/swagger` when `OpenApi:EnableUi` is true (on in compose).
+  - Configuration `PublicBaseUrl`, `ApiKeys:Clients`, `OpenApi:EnableUi`; local dev client via `DEV_CALLER_HASH`.
+  - Tests: 58 unit and 22 API tests, including a 12-way alias race and 10 identical requests with one key.
 - Short-code generation (TSK-07, ADR-0005).
   - Ports `IShortCodeGenerator`, `IIdRangeLeaser`, `IdRange`, `IdSpaceExhaustedException`.
   - `Base62Encoder` (fixed 7 characters) and `FeistelPermutation` (4 HMAC-SHA256 rounds over 42 bits, cycle-walking into 62⁷, with an inverse).

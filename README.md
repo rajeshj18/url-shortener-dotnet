@@ -10,7 +10,7 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 > - The design is complete: requirements, HLD, LLD and 13 accepted ADRs.
 > - The solution skeleton, the shared middleware and health endpoints, and the local Docker stack are in place (TSK-01 to TSK-03).
 > - The domain model, persistence and short-code generation are in place (TSK-05 to TSK-07).
-> - The create and redirect endpoints follow from TSK-08; see the [task breakdown](docs/04-task-breakdown.md).
+> - **Creating short links works** (`POST /api/v1/urls`, TSK-08). Redirects follow in TSK-09; see the [task breakdown](docs/04-task-breakdown.md).
 
 ## Run locally
 
@@ -26,6 +26,7 @@ A one-off `migrate` job applies the database schema first. `api` and `redirect` 
 > a fresh data volume. This deletes your local database.
 > If it predates TSK-07, also add `SHORTCODE_FEISTEL_KEY` (at least 32 characters); compose refuses to start the Api
 > without it. No volume reset is needed for this one.
+> If it predates TSK-08, also add `DEV_CALLER_HASH` from `.env.example` (the local API client).
 
 *Windows (PowerShell):*
 ```powershell
@@ -49,6 +50,7 @@ bash scripts/compose-smoke.sh
 | Api | http://localhost:5080/health/live |
 | Redirect | http://localhost:5081/health/live |
 | Grafana (traces, logs, metrics) | http://localhost:3000. See "Viewing telemetry" below. |
+| **Swagger UI** (try the API in the browser) | http://localhost:5080/swagger. Click **Authorize** and enter the dev key below. |
 
 **Viewing telemetry.** Our own dashboards arrive in TSK-22. The bundled "JVM" and "RED Metrics" dashboards
 expect other metric names, so they look empty. Until then, use **Explore** (compass icon) with the time
@@ -75,6 +77,31 @@ docker compose down -v     # stop and delete the local database volume
 Everything binds to `127.0.0.1` only. In stage 1 the stack is PostgreSQL (with 3 least-privilege roles), the `migrate` job, Grafana's `otel-lgtm`, Api and Redirect.
 It runs on x64 and arm64 (e.g. Apple Silicon).
 Kafka and the AnalyticsWorker are added in stage 2.
+
+## Try the API
+
+The local stack has one API client. Its **dev key is `local-dev-api-key-change-me`** (throwaway; only its SHA-256
+is configured, via `DEV_CALLER_HASH` in `.env`). The easiest way is the Swagger UI at http://localhost:5080/swagger.
+From a terminal:
+
+*Windows (PowerShell):*
+```powershell
+$headers = @{ "X-Api-Key" = "local-dev-api-key-change-me"; "Idempotency-Key" = [guid]::NewGuid().ToString() }
+Invoke-RestMethod -Method Post -Uri http://localhost:5080/api/v1/urls -Headers $headers `
+  -ContentType "application/json" -Body '{"longUrl":"https://example.com/some/long/path"}'
+```
+
+*macOS / Linux / Git Bash:*
+```bash
+DEV_CALLER=local-dev-api-key-change-me
+curl -i -X POST http://localhost:5080/api/v1/urls \
+  -H "X-Api-Key: $DEV_CALLER" -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" -d '{"longUrl":"https://example.com/some/long/path"}'
+```
+
+- Add `"customAlias": "spring-sale"` for your own code. A taken alias returns `409`.
+- Send the same request with the same `Idempotency-Key` again: you get the **same link** back with `Idempotent-Replayed: true`. The same key with a different body returns `422`.
+- Errors are RFC 7807 problems with a stable `code` (LLD §3). The `shortUrl` points at the Redirect service, which starts redirecting in TSK-09.
 
 ## Design at a glance
 

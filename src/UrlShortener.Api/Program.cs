@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using UrlShortener.Infrastructure.Observability;
 using UrlShortener.Infrastructure.Persistence;
 using UrlShortener.Infrastructure.ShortCodes;
+using UrlShortener.Infrastructure.ShortUrls;
 using UrlShortener.Infrastructure.Web;
+using UrlShortener.Infrastructure.Web.Authentication;
 
 namespace UrlShortener.Api
 {
@@ -25,14 +27,19 @@ namespace UrlShortener.Api
 
             builder.Services.AddControllers();
             builder.Services.AddUrlShortenerWebDefaults();
+            builder.Services.AddApiKeyAuthentication(builder.Configuration);
             builder.Services.AddUrlShortenerHealthChecks();
             builder.Services.AddLinksWriteStore(builder.Configuration);
             builder.Services.AddShortCodeGeneration(builder.Configuration);
+            builder.Services.AddShortUrlUseCases(builder.Configuration);
+            builder.Services.AddUrlShortenerOpenApi();
             builder.Services.AddUrlShortenerObservability(builder.Configuration, ServiceName);
 
             WebApplication app = builder.Build();
 
             app.UseUrlShortenerMiddleware();
+            app.UseUrlShortenerOpenApi();
+            app.UseApiKeyAuthentication();
             app.MapUrlShortenerHealthEndpoints();
             app.MapControllers();
 
