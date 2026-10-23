@@ -4,8 +4,12 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using UrlShortener.Application.Ports;
+using UrlShortener.Application.Redirects;
 using UrlShortener.Infrastructure.Persistence;
 
 namespace UrlShortener.IntegrationTests.Infrastructure
@@ -87,12 +91,34 @@ namespace UrlShortener.IntegrationTests.Infrastructure
             _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         }
 
+        /// <summary>Every click event the Redirect service published (replaces the no-op publisher).</summary>
+        public RecordingClickEventPublisher Clicks { get; } = new RecordingClickEventPublisher();
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             ArgumentNullException.ThrowIfNull(builder);
             builder
                 .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.PrimaryConnectionName, _connection)
-                .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.ReplicasConnectionName, _connection);
+                .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.ReplicasConnectionName, _connection)
+                .ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<IClickEventPublisher>();
+                    services.AddSingleton<IClickEventPublisher>(Clicks);
+                });
+        }
+    }
+
+    /// <summary>Records published click events for assertions.</summary>
+    public sealed class RecordingClickEventPublisher : IClickEventPublisher
+    {
+        /// <summary>The events, in publish order.</summary>
+        public System.Collections.Concurrent.ConcurrentQueue<ClickEvent> Events { get; } = new System.Collections.Concurrent.ConcurrentQueue<ClickEvent>();
+
+        /// <inheritdoc />
+        public bool TryPublish(ClickEvent clickEvent)
+        {
+            Events.Enqueue(clickEvent);
+            return true;
         }
     }
 }
