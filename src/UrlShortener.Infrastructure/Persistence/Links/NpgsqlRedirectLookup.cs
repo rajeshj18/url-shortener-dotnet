@@ -53,7 +53,17 @@ namespace UrlShortener.Infrastructure.Persistence.Links
                 return null;
             }
 
-            LongUrl target = LongUrl.Create(reader.GetString(0));
+            LongUrl target;
+            try
+            {
+                target = LongUrl.Create(reader.GetString(0));
+            }
+            catch (DomainValidationException exception)
+            {
+                // The stored URL is invalid: a server-side data problem, not a bad request (TSK-QW #7).
+                throw new StoredDataInvalidException($"Stored link '{code.Value}' breaks the domain rule '{exception.Code}'.", exception);
+            }
+
             LinkState state = await reader.IsDBNullAsync(1, cancellationToken) ? LinkState.Active : LinkState.Deleted;
             DateTimeOffset? expiresAt = await reader.IsDBNullAsync(2, cancellationToken) ? null : await reader.GetFieldValueAsync<DateTimeOffset>(2, cancellationToken);
             return new RedirectTarget(code, target, state, expiresAt);

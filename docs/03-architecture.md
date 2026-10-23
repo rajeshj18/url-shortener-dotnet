@@ -104,7 +104,7 @@ sequenceDiagram
     end
 ```
 Caching headers per status, and handling of `HEAD` and link-preview requests, are defined in ADR-0007.
-In stage 1 the click event is built and counted but discarded (no-op publisher); Kafka arrives in stage 2 (TSK-23).
+In stage 1 the click event is built and counted but discarded (no-op publisher); Kafka was planned for stage 2 (TSK-23), which was descoped.
 
 ### 3.3 Delete
 `DELETE /api/v1/urls/{code}` → owner check on the primary → `UPDATE … SET deleted_at` → 204. Replicas
@@ -167,7 +167,7 @@ What our services do during failover is described in LLD §6.7.
 - a one-off `migrate` step that runs the EF Core migration bundle. The services start only after it succeeds.
 - the Api and Redirect services
 
-**Stage 2** (TSK-23) adds `apache/kafka` (single node, KRaft), the `analytics` database and the AnalyticsWorker.
+**Stage 2** (TSK-23, descoped, not built) would add `apache/kafka` (single node, KRaft), the `analytics` database and the AnalyticsWorker.
 A streaming read replica and Valkey (only if ADR-0006 triggers; the TSK-12 load test showed it doesn't) are not
 part of the prototype.
 **There is no automatic failover locally**: it would need Patroni and etcd. The local resilience demo

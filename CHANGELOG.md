@@ -7,6 +7,8 @@ Each entry names the task (`TSK-xx`) that made the change.
 ## [Unreleased]
 
 ### Added
+- Close-out documents (TSK-QW): [final engineering summary](docs/08-final-summary.md), [testing strategy](docs/05-testing-strategy.md), [risks and trade-offs](docs/06-risks-tradeoffs.md), [scenario 2 write-up](docs/scenarios/02-brownfield.md); the project status marks TSK-16 onward as descoped.
+- JSON console logging with UTC timestamps in all three services, as ADR-0013 specifies (TSK-QW).
 - **Link expiry** (TSK-14, FR-04): optional `expiresAt` on create (future, at most 10 years ahead: `expiry.past`, `expiry.too-far`); after it, redirects answer `410` like deleted links; `expiresAt` in the create and metadata responses and in the idempotency hash. Expand-only migration `AddLinkExpiry` (nullable `expires_at`; `redirect_lookup` gains the column). `expiry.unsupported` is no longer emitted.
 - Scenario 1 (greenfield) write-up: ask → normalization → decomposition → AI-assisted execution → validation → outcome, with estimates vs actual hours ([docs/scenarios/01-greenfield.md](docs/scenarios/01-greenfield.md)); requirements matrix updated (TSK-13).
 - **v1 load test and CI performance gate** (TSK-12, ADR-0006).
@@ -92,6 +94,7 @@ Each entry names the task (`TSK-xx`) that made the change.
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
 ### Fixed
+- A stored row that breaks a domain rule answers `500` (logged, naming the record and the rule), not `400`, on the metadata and redirect paths (TSK-QW).
 - `401` responses now carry `WWW-Authenticate: ApiKey header="X-Api-Key"`, which RFC 9110 §15.5.2 requires (TSK-15).
 - Every problem response's `traceId` is the 32-hex trace ID; framework-generated problems (`401`, unknown-code `404`) used to carry the full `traceparent`, which didn't match the logs (TSK-15).
 - Docs: the HLD §3.2 redirect diagram failed to render on GitHub (a `;` inside a Mermaid message); HLD, LLD and README brought in line with what stage 1 built (DOC-01).

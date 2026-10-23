@@ -5,7 +5,8 @@ namespace UrlShortener.Infrastructure.Persistence.Links
 {
     /// <summary>
     /// Converts between the domain's <see cref="ShortUrl"/> and its persistence model. Loading goes through the
-    /// domain's validated factories, so a record that breaks a domain rule can't be turned into a domain object.
+    /// domain's validated factories, so a record that breaks a domain rule can't be turned into a domain object; it
+    /// becomes a <see cref="StoredDataInvalidException"/> (a <c>500</c>), never a client error (TSK-QW #7).
     /// </summary>
     public static class ShortUrlRecordMapper
     {
@@ -35,11 +36,18 @@ namespace UrlShortener.Infrastructure.Persistence.Links
         {
             ArgumentNullException.ThrowIfNull(record);
 
-            ShortCode code = record.IsCustom
-                ? ShortCode.FromAlias(CustomAlias.Create(record.Code))
-                : ShortCode.FromGenerated(record.Code);
+            try
+            {
+                ShortCode code = record.IsCustom
+                    ? ShortCode.FromAlias(CustomAlias.Create(record.Code))
+                    : ShortCode.FromGenerated(record.Code);
 
-            return ShortUrl.Rehydrate(code, LongUrl.Create(record.Target), record.OwnerId, record.CreatedAt, record.DeletedAt, record.ExpiresAt);
+                return ShortUrl.Rehydrate(code, LongUrl.Create(record.Target), record.OwnerId, record.CreatedAt, record.DeletedAt, record.ExpiresAt);
+            }
+            catch (DomainValidationException exception)
+            {
+                throw new StoredDataInvalidException($"Stored link '{record.Code}' breaks the domain rule '{exception.Code}'.", exception);
+            }
         }
     }
 }

@@ -66,16 +66,16 @@ The most significant one, what "system" means in the brief, is decided in ADR-00
 ## 6. Traceability to the brief
 
 Each section of the brief is described in our own words (ADR-0011) and mapped to the artifacts that address it.
-**Status:** ✅ done · ⏳ planned (task ID) · ⚠️ gap or partial (see §6.8).
+**Status:** ✅ done · ⚠️ gap or partial (see §6.8) · ❌ descoped (stage 1 closed after TSK-15, 2026-10-23).
 
 ### 6.1 Objective and scenario
 | Brief item | Addressed by | Status |
 |---|---|---|
-| A working prototype that turns a requirement into a reviewable engineering outcome | Stage 1 build (TSK-02 to TSK-22); PRs per task (ADR-0012) | ⏳ |
+| A working prototype that turns a requirement into a reviewable engineering outcome | Stage 1 build (TSK-02 to TSK-15, TSK-QW); PRs per task (ADR-0012); [final summary](08-final-summary.md) | ✅ |
 | Show requirement understanding, task decomposition, multi-step execution, output generation and validation | §6.3 rows 1, 2, 4, 5, 6 | see below |
 | Engineer-led execution accelerated by AI, not autonomous orchestration | ADR-0012; engineer-authored sign-off commits; traceability log | ✅ |
-| A URL shortener with **core APIs** | FR-01 to FR-10; LLD §3; TSK-08 to TSK-10 ([scenario 1](scenarios/01-greenfield.md)) | ✅ FR-01–03, 05, 06, 08–10 · ⏳ FR-04 (TSK-14) |
-| … with **analytics** | FR-07; ADR-0008; LLD §6.5; **TSK-23 (stage 2)** | ⚠️ G3 |
+| A URL shortener with **core APIs** | FR-01 to FR-10; LLD §3; TSK-08 to TSK-10 ([scenario 1](scenarios/01-greenfield.md)) | ✅ FR-01 to FR-06 and FR-08 to FR-10 (FR-04 by TSK-14) |
+| … with **analytics** | FR-07; ADR-0008; LLD §6.5; TSK-23 (stage 2) ❌ descoped: click events are built and counted, not stored | ⚠️ G3: designed, not built |
 | … with **reliability features** | ADR-0002; LLD §6.6–6.7; HLD §5; TSK-11, TSK-11b; fault-injection tests | ✅ |
 | Completed over 2–3 days with AI assistance, showing engineering judgment | Timebox discussion in `04-task-breakdown.md` §5; documented trade-offs (ADR alternatives) | ⚠️ G5 |
 
@@ -83,38 +83,38 @@ Each section of the brief is described in our own words (ADR-0011) and mapped to
 | Brief item | Addressed by | Status |
 |---|---|---|
 | Greenfield work | Scenario 1 (TSK-05 to TSK-13): [write-up](scenarios/01-greenfield.md) | ✅ |
-| Brownfield: enhancements, refactors, bug fixes | Scenario 2: expiry (TSK-14), validation refactor (TSK-16), alias race (TSK-15); analytics in stage 2 (TSK-23) | ⏳ |
-| Test and documentation improvements | TSK-17; Stryker (TSK-28, stage 3) | ⏳ |
-| Well-defined and ambiguous requirements | Scenarios 1–2 (well-defined); scenario 3 (TSK-19, TSK-20) | ⏳ |
+| Brownfield: enhancements, refactors, bug fixes | [Scenario 2](scenarios/02-brownfield.md): expiry (TSK-14) ✅, three real defects (TSK-15, TSK-QW) ✅, validation refactor (TSK-16) ❌ descoped | ⚠️ refactor missing |
+| Test and documentation improvements | Tests in every task; TSK-QW (testing strategy, risks, summaries, JSON logging); TSK-17 and Stryker descoped | ✅ partly |
+| Well-defined and ambiguous requirements | Scenarios 1–2 (well-defined) ✅; scenario 3 (TSK-19, TSK-20) ❌ descoped | ⚠️ ambiguous scenario missing |
 
 ### 6.3 Core requirements
 | # | Brief item | Addressed by | Status |
 |---|---|---|---|
 | 1 | Requirement understanding: interpret intent, find ambiguity, normalize | This document (§1–5); `assumptions.md`; ADR-0001 | ✅ |
 | 2 | Task decomposition with dependencies and sequencing | `04-task-breakdown.md` (tasks, dependency graph, critical path), approved by the engineer | ✅ |
-| 3 | Codebase reasoning for brownfield work: impacted modules, services, APIs, data flows | Brownfield impact analyses (TSK-14 to TSK-16, TSK-18); HLD flows; ADR-0009 dependency rules | ⏳ |
-| 4a | AI across implementation, debugging, refactoring, test generation, documentation, review preparation | Every task (ADR-0012 §2); PR descriptions and AI self-review; the log records debugging sessions | ⏳ |
-| 4b | Tasks defined with intent, constraints, acceptance criteria, technical context | Task-spec template (TSK-01); `docs/tasks/TSK-xx` | ⏳ |
-| 4c | **Disciplined prompting with iterative refinement** | Prompt library with version history (TSK-01); prompt iterations logged for high-risk tasks (definition of done) | ⏳ (G1 resolved) |
+| 3 | Codebase reasoning for brownfield work: impacted modules, services, APIs, data flows | Brownfield impact analyses (TSK-14, TSK-15 specs; [scenario 2](scenarios/02-brownfield.md) §3; TSK-16 descoped); HLD flows; ADR-0009 dependency rules | ✅ partly (no refactor) |
+| 4a | AI across implementation, debugging, refactoring, test generation, documentation, review preparation | Every task (ADR-0012 §2); PR descriptions and AI self-review; the log records debugging sessions | ✅ except refactoring (TSK-16 descoped) |
+| 4b | Tasks defined with intent, constraints, acceptance criteria, technical context | Task-spec template (TSK-01); `docs/tasks/TSK-xx` | ✅ |
+| 4c | **Disciplined prompting with iterative refinement** | Prompt library with version history (TSK-01); prompt iterations logged for high-risk tasks (definition of done) | ✅ (prompt iterations in every high-risk log row) |
 | 4d | Traceability: generated, edited or rejected, with rationale | `ai-usage/traceability-log.md` (PLAN-01 to PLAN-26 so far; TSK-xx to follow) | ✅ |
 | 4e | Quality gates: analysis, linting, tests, security, **performance** | ADR-0012 §5; TSK-04 (core gates); k6 `perf-smoke` on every PR (TSK-12); [load-test results](perf/v1-load-test.md) | ✅ (G2 resolved; `perf-smoke` becomes required when the engineer adds it to the ruleset) |
-| 4f | Secure AI usage | ADR-0011; gitleaks, SCA and CodeQL in TSK-04 | ✅ decided · ⏳ tooling |
+| 4f | Secure AI usage | ADR-0011; gitleaks, SCA and CodeQL in TSK-04 | ✅ |
 | 4g | Human sign-off for high-impact changes | ADR-0012 §4 risk classes; signed-off ADR commits (git history) | ✅ |
-| 4h | Explicit engineer ownership of correctness, maintainability, production readiness | PR checklist ownership statement (ADR-0012); merge commits by the engineer | ✅ decided · ⏳ in PRs |
-| 5 | Production-quality code, API and schema definitions, unit and integration tests, documentation | LLD §3–5 (API, schema, classes); OpenAPI (TSK-08); definition of done (`04` §2) | ✅ designed · ⏳ built |
-| 6 | Risks, trade-offs, failure scenarios, validation and safety guardrails | HLD §5 failure modes; ADR alternatives; LLD §6.7; `06-risks-tradeoffs` (TSK-22) | ✅ partly · ⏳ |
+| 4h | Explicit engineer ownership of correctness, maintainability, production readiness | PR checklist ownership statement (ADR-0012); merge commits by the engineer | ✅ |
+| 5 | Production-quality code, API and schema definitions, unit and integration tests, documentation | LLD §3–5 (API, schema, classes); OpenAPI (TSK-08); definition of done (`04` §2) | ✅ (gaps listed in the [final summary](08-final-summary.md) §7) |
+| 6 | Risks, trade-offs, failure scenarios, validation and safety guardrails | HLD §5 failure modes; ADR alternatives; LLD §6.7; [risks and trade-offs](06-risks-tradeoffs.md) (TSK-QW) | ✅ |
 | 7 | Controlled oversight: engineer leads and approves all outputs | ADR-0012; branch protection (TSK-04); propose and sign-off commits | ✅ |
-| 8 | Final engineering summary: plan and rationale, artifacts, risks, trade-offs, validation, assumptions, limitations | `08-final-summary` (TSK-22) | ⏳ |
+| 8 | Final engineering summary: plan and rationale, artifacts, risks, trade-offs, validation, assumptions, limitations | [final summary](08-final-summary.md) (TSK-QW) | ✅ |
 
 ### 6.4 Deliverables
 | Brief item | Addressed by | Status |
 |---|---|---|
-| Working prototype, runnable end to end | `docker compose up`; demo scripts (TSK-21); clean-clone run (TSK-22) | ⏳ |
+| Working prototype, runnable end to end | `docker compose up`; clean-clone run passed (TSK-QW, [summary §4](08-final-summary.md)); demo scripts (TSK-21) ❌ descoped | ✅ |
 | Architecture overview: components, tools, execution approach, control flow, key decisions | HLD (`03-architecture.md`) incl. §8 engineering workflow; ADR index | ✅ |
-| Three scenarios, each showing decomposition, execution, validation | `scenarios/` (TSK-13, TSK-18, TSK-20), fixed structure | ⏳ |
-| Setup instructions | README setup section (TSK-22) | ⏳ |
-| Testing approach, limitations, trade-offs | `05-testing-strategy`, `06-risks-tradeoffs` (TSK-22); definition of done (`04` §2) | ⏳ |
-| Publish in a new **public** GitHub repository and share the link | TSK-00 (publish); TSK-22 (final check) | ⏳ |
+| Three scenarios, each showing decomposition, execution, validation | [Scenario 1](scenarios/01-greenfield.md) ✅, [scenario 2](scenarios/02-brownfield.md) ✅ (no refactor), scenario 3 ❌ descoped | ⚠️ 2 of 3 |
+| Setup instructions | README "Run locally" and "Try the API", verified on a clean clone (TSK-QW) | ✅ |
+| Testing approach, limitations, trade-offs | [Testing strategy](05-testing-strategy.md), [risks and trade-offs](06-risks-tradeoffs.md) (TSK-QW); definition of done (`04` §2) | ✅ |
+| Publish in a new **public** GitHub repository and share the link | TSK-00 (publish); the public repository is the deliverable's home | ✅ |
 
 ### 6.5 Evaluation criteria
 | Brief item | Where the evidence is |
@@ -136,7 +136,7 @@ Each section of the brief is described in our own words (ADR-0011) and mapped to
 
 ### 6.7 Status summary
 - **Design phase:** complete (requirements, HLD, LLD, 13 accepted ADRs, approved task breakdown).
-- **Build:** planned as stage 1 (TSK-00 to TSK-22).
+- **Build:** stage 1 built TSK-00 to TSK-15 and TSK-QW; TSK-16 to TSK-22 were descoped on 2026-10-23.
 
 ### 6.8 Gaps found by this matrix
 | ID | Gap | Action | Decision |
