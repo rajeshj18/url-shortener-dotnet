@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,7 +17,7 @@ namespace UrlShortener.Infrastructure.Web
     public sealed partial class ProblemDetailsExceptionHandler : IExceptionHandler
     {
         /// <summary>The media type of RFC 7807 problem responses.</summary>
-        public const string ProblemJsonContentType = "application/problem+json";
+        public const string ProblemJsonContentType = ProblemResponses.ProblemJsonContentType;
 
         private readonly ILogger<ProblemDetailsExceptionHandler> _logger;
 
@@ -40,7 +39,7 @@ namespace UrlShortener.Infrastructure.Web
                 return false;
             }
 
-            string traceId = ResolveTraceId(httpContext);
+            string traceId = ProblemResponses.TraceId(httpContext);
             LogUnhandledException(_logger, traceId, exception);
 
             ProblemDetails problem = new ProblemDetails
@@ -54,12 +53,6 @@ namespace UrlShortener.Infrastructure.Web
             httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
             await httpContext.Response.WriteAsJsonAsync(problem, (JsonSerializerOptions?)null, ProblemJsonContentType, cancellationToken);
             return true;
-        }
-
-        private static string ResolveTraceId(HttpContext httpContext)
-        {
-            Activity? activity = Activity.Current;
-            return activity != null ? activity.TraceId.ToString() : httpContext.TraceIdentifier;
         }
 
         [LoggerMessage(EventId = 1000, Level = LogLevel.Error, Message = "Unhandled exception. TraceId: {TraceId}")]
