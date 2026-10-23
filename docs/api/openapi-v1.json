@@ -96,6 +96,101 @@
           }
         }
       }
+    },
+    "/api/v1/urls/{code}": {
+      "get": {
+        "tags": [
+          "ShortUrls"
+        ],
+        "summary": "Returns the caller\u0027s link, including whether and when it was deleted.",
+        "description": "Returns \u0060404\u0060 both for unknown codes and for other clients\u0027 links, so codes can\u0027t be probed.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "The short code or alias.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShortUrlDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ShortUrls"
+        ],
+        "summary": "Deletes the caller\u0027s link. Its short URL then answers \u0060410 Gone\u0060, and the code is never reused.",
+        "description": "Idempotent: deleting again returns \u0060204\u0060 and keeps the first deletion time.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "The short code or alias.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -178,6 +273,38 @@
           }
         },
         "additionalProperties": {}
+      },
+      "ShortUrlDetails": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "shortUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "longUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "isCustom": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       }
     },
     "securitySchemes": {

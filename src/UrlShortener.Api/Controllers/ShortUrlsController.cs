@@ -25,12 +25,18 @@ namespace UrlShortener.Api.Controllers
         private const string ProblemJson = "application/problem+json";
 
         private readonly ICreateShortUrlHandler _create;
+        private readonly IGetShortUrlHandler _get;
+        private readonly IDeleteShortUrlHandler _delete;
 
         /// <summary>Creates the controller.</summary>
         /// <param name="create">The create use case.</param>
-        public ShortUrlsController(ICreateShortUrlHandler create)
+        /// <param name="get">The metadata use case.</param>
+        /// <param name="delete">The delete use case.</param>
+        public ShortUrlsController(ICreateShortUrlHandler create, IGetShortUrlHandler get, IDeleteShortUrlHandler delete)
         {
             _create = create ?? throw new ArgumentNullException(nameof(create));
+            _get = get ?? throw new ArgumentNullException(nameof(get));
+            _delete = delete ?? throw new ArgumentNullException(nameof(delete));
         }
 
         /// <summary>Creates a short link with a generated code or a custom alias.</summary>
@@ -62,8 +68,7 @@ namespace UrlShortener.Api.Controllers
                 return Problem(StatusCodes.Status400BadRequest, "Idempotency-Key must be 1-128 printable ASCII characters.", ApplicationErrorCodes.IdempotencyKeyFormat);
             }
 
-            string ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? throw new InvalidOperationException("An authenticated request has no owner.");
+            string ownerId = OwnerId();
             CreateShortUrlResult result = await _create.HandleAsync(
                 new CreateShortUrlCommand(ownerId, request.Destination, request.CustomAlias, request.ExpiresAt, idempotencyKey),
                 cancellationToken);
@@ -82,7 +87,47 @@ namespace UrlShortener.Api.Controllers
             }
         }
 
-        // Location points at the metadata endpoint (served from TSK-10). Codes contain only URL-safe characters.
+        /// <summary>Returns the caller's link, including whether and when it was deleted.</summary>
+        /// <remarks>Returns <c>404</c> both for unknown codes and for other clients' links, so codes can't be probed.</remarks>
+        /// <param name="code">The short code or alias.</param>
+        /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
+        /// <returns>The link's details.</returns>
+        [HttpGet("{code}")]
+        [ProducesResponseType(typeof(ShortUrlDetails), StatusCodes.Status200OK, "application/json")]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized, ProblemJson)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, ProblemJson)]
+        public async Task<IActionResult> Get(string code, CancellationToken cancellationToken)
+        {
+            ShortUrlDetails? details = await _get.GetAsync(OwnerId(), code, cancellationToken);
+            return details != null ? Ok(details) : LinkNotFound();
+        }
+
+        /// <summary>Deletes the caller's link. Its short URL then answers <c>410 Gone</c>, and the code is never reused.</summary>
+        /// <remarks>Idempotent: deleting again returns <c>204</c> and keeps the first deletion time.</remarks>
+        /// <param name="code">The short code or alias.</param>
+        /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
+        /// <returns>No content.</returns>
+        [HttpDelete("{code}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized, ProblemJson)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, ProblemJson)]
+        public async Task<IActionResult> Delete(string code, CancellationToken cancellationToken)
+        {
+            return await _delete.DeleteAsync(OwnerId(), code, cancellationToken) ? NoContent() : LinkNotFound();
+        }
+
+        private string OwnerId()
+        {
+            return User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? throw new InvalidOperationException("An authenticated request has no owner.");
+        }
+
+        private ObjectResult LinkNotFound()
+        {
+            return Problem(StatusCodes.Status404NotFound, "No such link.", ApplicationErrorCodes.LinkNotFound);
+        }
+
+        // Location points at the metadata endpoint. Codes contain only URL-safe characters.
         private CreatedResult CreatedAt(CreatedShortUrl body)
         {
             return Created(new Uri("/api/v1/urls/" + body.Code, UriKind.Relative), body);

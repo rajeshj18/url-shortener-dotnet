@@ -16,6 +16,10 @@ Each entry names the task (`TSK-xx`) that made the change.
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
 ### Added
+- **Metadata and delete: `GET` / `DELETE /api/v1/urls/{code}`** (TSK-10, LLD §6.3).
+  - Owner only; another client's link and an unknown code give the same `404 link.not-found`.
+  - Soft delete, `204`, idempotent (keeps the first deletion time); the short URL then answers `410`, and the alias can't be created again (A-25). The owner still sees a deleted link, with `deletedAt` (D1).
+  - OpenAPI document regenerated. Tests: 7 unit and 7 API tests (across Api and Redirect).
 - **Redirect: `GET` / `HEAD /{code}`** in the Redirect service (TSK-09, LLD §6.2, ADR-0007).
   - `302` + `Location` + `Cache-Control: no-store`; `404` (`no-store`) for unknown or malformed codes, without a database call for malformed ones; `410` (`public, max-age=86400`) for deleted links.
   - Replica lookup with a capped primary fallback (token bucket, `Redirect:PrimaryFallbackPerSecond` = 500) for read-your-writes.

@@ -111,6 +111,7 @@ never keys. Missing or unknown key → `401` problem.
 | Status | Codes |
 |---|---|
 | `400` | `url.required`, `url.length`, `url.characters`, `url.scheme`, `url.format`, `url.credentials`, `url.self-link`, `alias.required`, `alias.length`, `alias.characters`, `alias.generated-shape`, `alias.reserved`, `idempotency-key.format`, `expiry.unsupported` (until TSK-14) |
+| `404` | `link.not-found`: unknown code **or another client's link** (identical response, TSK-10) |
 | `409` | `alias.taken` |
 | `422` | `idempotency-key.reused` |
 | `503` | ID space exhausted (`Retry-After: 5`) |
@@ -413,6 +414,10 @@ Expired keys are deleted by the cleanup task in §6.6. Because of the 24 h check
 ### 6.3 Delete
 Check ownership on the primary (`IShortUrlRepository.FindByCodeAsync`; return `404` if it isn't the owner's link) → `ShortUrl.MarkDeleted` → `SaveDeletionAsync` → `204`.
 Calling it again on an already-deleted link returns `204`. If a cache exists, purge the entry before returning.
+
+**Metadata response (TSK-10):** `{ code, shortUrl, longUrl, isCustom, createdAt, deletedAt }`. A deleted link still
+returns `200` to its owner, with `deletedAt` set (TSK-10 D1); everyone else gets `404 link.not-found`, the same
+body as for an unknown code. Ownership is checked in the Application layer on the primary (`OwnedShortUrlHandler`).
 
 ### 6.4 Short-code generation
 - **Three levels of ID allocation:**
