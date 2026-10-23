@@ -44,6 +44,45 @@ namespace UrlShortener.UnitTests.Infrastructure.Redirects
         }
 
         [Fact]
+        public void Budget_counts_granted_and_denied_fallbacks()
+        {
+            long granted = 0;
+            long denied = 0;
+            using MeterListener listener = new MeterListener();
+            listener.InstrumentPublished = (instrument, l) =>
+            {
+                if (instrument.Meter.Name == UrlShortenerMeters.Name && instrument.Name == TokenBucketFallbackBudget.DecisionsCounterName)
+                {
+                    l.EnableMeasurementEvents(instrument);
+                }
+            };
+            listener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
+            {
+                foreach (KeyValuePair<string, object?> tag in tags)
+                {
+                    if (tag.Key == "outcome" && (string?)tag.Value == "granted")
+                    {
+                        granted += value;
+                    }
+                    else if (tag.Key == "outcome" && (string?)tag.Value == "denied")
+                    {
+                        denied += value;
+                    }
+                }
+            });
+            listener.Start();
+            TokenBucketFallbackBudget budget = new TokenBucketFallbackBudget(3, new SteppedTime());
+
+            for (int i = 0; i < 5; i++)
+            {
+                budget.TryAcquire();
+            }
+
+            granted.Should().Be(3);
+            denied.Should().Be(2);
+        }
+
+        [Fact]
         public void Budget_rejects_invalid_arguments()
         {
             Action zero = () => _ = new TokenBucketFallbackBudget(0, new SteppedTime());

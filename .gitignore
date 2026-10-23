@@ -30,3 +30,6 @@ Thumbs.db
 
 # BenchmarkDotNet output (results are recorded in tests/UrlShortener.Benchmarks/README.md)
 BenchmarkDotNet.Artifacts/
+
+# k6 summaries from local and CI runs (curated results are in docs/perf/)
+tests/load/results/

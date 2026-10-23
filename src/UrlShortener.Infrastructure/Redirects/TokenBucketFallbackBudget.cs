@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using UrlShortener.Application.Ports;
+using UrlShortener.Infrastructure.Observability;
 
 namespace UrlShortener.Infrastructure.Redirects
 {
@@ -10,6 +13,15 @@ namespace UrlShortener.Infrastructure.Redirects
     /// </summary>
     public sealed class TokenBucketFallbackBudget : IPrimaryFallbackBudget
     {
+        /// <summary>Counter of fallback decisions, tagged <c>outcome=granted|denied</c> (ADR-0006 scan criterion, TSK-12).</summary>
+        public const string DecisionsCounterName = "redirect_primary_fallback";
+
+        private static readonly Counter<long> Decisions = UrlShortenerMeters.Meter.CreateCounter<long>(
+            DecisionsCounterName, unit: "{decision}", description: "Replica misses that were (granted) or weren't (denied) allowed to query the primary.");
+
+        private static readonly KeyValuePair<string, object?> Granted = new KeyValuePair<string, object?>("outcome", "granted");
+        private static readonly KeyValuePair<string, object?> Denied = new KeyValuePair<string, object?>("outcome", "denied");
+
         private readonly object _gate = new object();
         private readonly double _perSecond;
         private readonly TimeProvider _time;
@@ -44,10 +56,12 @@ namespace UrlShortener.Infrastructure.Redirects
 
                 if (_tokens < 1)
                 {
+                    Decisions.Add(1, Denied);
                     return false;
                 }
 
                 _tokens -= 1;
+                Decisions.Add(1, Granted);
                 return true;
             }
         }
