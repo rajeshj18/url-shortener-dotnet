@@ -51,6 +51,19 @@ namespace UrlShortener.Infrastructure.Web.Authentication
             return Task.FromResult(AuthenticateResult.Success(ticket));
         }
 
+        /// <summary>
+        /// Answers <c>401</c> with <c>WWW-Authenticate: ApiKey header="X-Api-Key"</c>. RFC 9110 §15.5.2: a server
+        /// generating a 401 MUST send this header, naming the scheme the client should use (TSK-15). The problem
+        /// body is added by the status-code-pages middleware.
+        /// </summary>
+        /// <param name="properties">Authentication properties.</param>
+        /// <returns>A task.</returns>
+        protected override Task HandleChallengeAsync(AuthenticationProperties properties)
+        {
+            Response.Headers.WWWAuthenticate = ApiKeyAuthenticationDefaults.Scheme + " header=\"" + ApiKeyAuthenticationDefaults.HeaderName + "\"";
+            return base.HandleChallengeAsync(properties);
+        }
+
         /// <summary>Finds the owner whose key hash matches. Every client is compared, so timing reveals nothing.</summary>
         /// <param name="presentedKey">The header value.</param>
         /// <param name="clients">The configured clients.</param>

@@ -103,9 +103,11 @@ and committed.
 
 **Authentication (TSK-08, D1).** `X-Api-Key` is hashed with SHA-256 and compared in constant time with the
 configured clients (`ApiKeys:Clients:n:OwnerId` / `KeyHash`); a match sets `ownerId`. Only hashes are configured,
-never keys. Missing or unknown key → `401` problem.
+never keys. Missing or unknown key → `401` problem with `WWW-Authenticate: ApiKey header="X-Api-Key"` (RFC 9110
+§15.5.2 requires the header; added by TSK-15).
 
-**Error responses.** Every `4xx`/`5xx` is `application/problem+json` with `traceId`. Expected errors also carry
+**Error responses.** Every `4xx`/`5xx` is `application/problem+json` with `traceId`: always the **32-hex W3C
+trace ID** that logs and traces carry, whichever code path produced the problem (TSK-15). Expected errors also carry
 `errors: [{ "code", "message" }]` with a **stable code** (never renamed):
 
 | Status | Codes |
