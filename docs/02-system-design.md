@@ -405,17 +405,18 @@ Calling it again on an already-deleted link returns `204`. If a cache exists, pu
   WHERE region_index = @r AND status = 'active' AND next_id + @size <= range_end
   RETURNING next_id - @size;
   ```
-  - `ShortCodeGenerator` keeps the current and the next lease and hands out IDs under a lock. It fetches the next lease in the background at 50% use.
+  - `ShortCodeGenerator` keeps the current and the next lease and hands out IDs under a lock. It fetches the next lease in the background at 50% use. Only one refill runs at a time. A background fetch that failed is not shown to a caller: when the lease runs out, the refill leases directly, and only an error from that call (for example exhaustion) reaches the request.
   - A final partial lease (fewer than 10,000 IDs left in a block) is skipped. That wastes at most 9,999 IDs per block, which is negligible.
 - **Switching to the next block** (when the lease statement returns no row):
-  1. In one transaction, take a per-region advisory lock: `pg_advisory_xact_lock(<id_blocks lock key>, @r)`. Only one instance can switch blocks at a time.
+  1. In one transaction, take a per-region advisory lock: `pg_advisory_xact_lock(7005, @r)` (7005 is a fixed key for `id_blocks`). Only one instance can switch blocks at a time.
   2. Re-read the active block. If another instance has already switched, commit and retry the lease.
   3. Otherwise mark the active block `exhausted` and the lowest `reserved` block for this region `active`, then commit and retry the lease.
-  4. If there is no reserved block, creates fail with `503`, and a critical alert fires. The 80% alert (via `id_block_used_ratio`) exists so this never happens.
-- **Startup check, before the instance reports ready:**
+  4. If there is no reserved block, roll back (the block stays as it was) and throw `IdSpaceExhaustedException`: creates fail with `503`, and a critical alert fires. The 80% alert (via `id_block_used_ratio`) exists so this never happens.
+- **Startup check, before the instance reports ready** (`ShortCodeStartupCheck`, a hosted service; if it fails, the Api process does not start):
   1. Read `ShortCode:DeploymentRegionIndex` (default 0).
   2. Fail if `id_blocks` has no active block for that region, or contains rows for any other region (a misconfiguration guard for the multi-region release).
   3. Lease the first range.
+  - So the Api needs its database to **start**. An Api already running that loses the database stays live but reports not ready (`/health/ready` returns `503`, §3).
 - **Autoscaling:** every instance in a regional deployment shares the same configuration, so new instances need no setup. A stopped instance's unused IDs are skipped. At most ~1% is lost, even with heavy churn.
 
 #### Runbook: assign a region block
@@ -449,8 +450,11 @@ still map to the same code.
 - **Feistel:**
   - 42-bit space split into two 21-bit halves; 4 rounds.
   - Round function: HMAC-SHA256 over the round number and right half, keyed with a secret, truncated to 21 bits.
+    - Message: 5 bytes, the round number (1 byte) then the half as a big-endian 32-bit integer. Output: the first 4 bytes of the MAC, big-endian, masked to 21 bits. Stack buffers only, no allocations per call.
+    - **Key:** `ShortCode:FeistelKey` is a passphrase of at least 32 characters; the 32-byte HMAC key is its SHA-256 (UTF-8). Changing the passphrase changes every future code, so it must never change once codes exist.
   - **Cycle-walking:** while the result ≥ 62⁷, apply the permutation again. This takes about 1.25 rounds on average and keeps the mapping one-to-one on `[0, 62⁷)`.
-- **Base62:** exactly 7 digits, alphabet `0-9A-Za-z`. Cost is a few microseconds per code (to be measured with BenchmarkDotNet).
+- **Base62:** exactly 7 digits, alphabet `0-9A-Za-z`, left-padded with `0`.
+- **Measured cost** (BenchmarkDotNet, TSK-07, .NET 8 on an 8-core Arm64 laptop): **~2.1 µs per code** for the whole generator path (`Permute` ~2.0 µs, which is the 4 HMAC rounds; `Encode` ~15 ns; 184 bytes allocated per code). At the 3.5K writes/s peak that is under 1% of one core, so generation is never the bottleneck.
 
 ### 6.5 Analytics pipeline
 - **Topic:** `click-events.v1`.
@@ -586,7 +590,7 @@ Implemented as separate `IUrlValidationRule` classes so the ambiguous scenario c
 | `Resilience:*` | Timeouts, retry and breaker settings from §6.7 | One place to tune them |
 | `Redirect:PrimaryFallbackPerSecond` / `MaxReplicaLagSeconds` | `500` / `2` | |
 | `ShortCode:DeploymentRegionIndex` / `LeaseSize` | `0` / `10000` | Set once per regional deployment; instances created by autoscaling inherit it |
-| `ShortCode:FeistelKey` | *(environment / secret store only)* | **Must never change** once in use (ADR-0005) |
+| `ShortCode:FeistelKey` | *(environment / secret store only)* | Required; a passphrase of at least 32 characters, hashed to the 32-byte key (§6.4). **Must never change** once in use (ADR-0005). Locally: `SHORTCODE_FEISTEL_KEY` in `.env` |
 | `Kafka:BootstrapServers` / `Topic` / `ConsumerGroup` | `kafka:9092` / `click-events.v1` / `analytics-worker` | |
 | `Analytics:BatchMaxRecords` / `BatchMaxSeconds` | `5000` / `5` | |
 | `OpenTelemetry:Endpoint` / `SamplingRatio` | `http://otel-lgtm:4317` / `1.0` locally | |

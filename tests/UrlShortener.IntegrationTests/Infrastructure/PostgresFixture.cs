@@ -61,12 +61,7 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         public async Task InitializeAsync()
         {
             await _container.StartAsync();
-
-            DbContextOptions<LinksDbContext> options = new DbContextOptionsBuilder<LinksDbContext>()
-                .UseNpgsql(MigratorConnection)
-                .Options;
-            await using LinksDbContext context = new LinksDbContext(options);
-            await context.Database.MigrateAsync();
+            await MigrateAsync(MigratorConnection);
         }
 
         /// <inheritdoc />
@@ -75,13 +70,67 @@ namespace UrlShortener.IntegrationTests.Infrastructure
             await _container.DisposeAsync();
         }
 
-        private string ConnectionFor(string role)
+        /// <summary>
+        /// Creates a fresh, fully migrated database in the same container, with the same roles and grants as the main
+        /// one. For tests that change <c>id_blocks</c> (block switches, startup-check failures) or remove the database,
+        /// so the shared database is never affected. Dispose it to drop it.
+        /// </summary>
+        /// <returns>The scratch database.</returns>
+        public async Task<ScratchDatabase> CreateScratchDatabaseAsync()
+        {
+            // The name comes from a GUID, so it is a safe identifier; DDL can't take parameters.
+            string name = "scratch_" + Guid.NewGuid().ToString("N");
+            await ExecuteAsync(BootstrapConnection, $"CREATE DATABASE {name} OWNER urlshortener_migrator");
+            await ExecuteAsync(
+                ConnectionFor(BootstrapUser, name),
+                $@"REVOKE ALL ON DATABASE {name} FROM PUBLIC;
+GRANT CONNECT ON DATABASE {name} TO urlshortener_migrator, urlshortener_api, urlshortener_redirect;
+GRANT USAGE ON SCHEMA public TO urlshortener_api, urlshortener_redirect;");
+
+            ScratchDatabase scratch = new ScratchDatabase(
+                name,
+                ConnectionFor("urlshortener_migrator", name),
+                ConnectionFor("urlshortener_api", name),
+                ConnectionFor(BootstrapUser, name),
+                DropScratchDatabaseAsync);
+            await MigrateAsync(scratch.MigratorConnection);
+            return scratch;
+        }
+
+        private Task DropScratchDatabaseAsync(string name)
+        {
+            return ExecuteAsync(BootstrapConnection, $"DROP DATABASE IF EXISTS {name} WITH (FORCE)");
+        }
+
+        private static async Task MigrateAsync(string migratorConnection)
+        {
+            DbContextOptions<LinksDbContext> options = new DbContextOptionsBuilder<LinksDbContext>()
+                .UseNpgsql(migratorConnection)
+                .Options;
+            await using LinksDbContext context = new LinksDbContext(options);
+            await context.Database.MigrateAsync();
+        }
+
+        private static async Task ExecuteAsync(string connectionString, string sql)
+        {
+            await using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using NpgsqlCommand command = new NpgsqlCommand(sql, connection);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        private string ConnectionFor(string role, string database = Database)
         {
             NpgsqlConnectionStringBuilder builder = new NpgsqlConnectionStringBuilder(_container.GetConnectionString())
             {
-                Username = role,
-                Password = _passwords[role],
+                Database = database,
             };
+            if (role != BootstrapUser)
+            {
+                builder.Username = role;
+                builder.Password = _passwords[role];
+            }
+
             return builder.ConnectionString;
         }
 
@@ -92,18 +141,7 @@ namespace UrlShortener.IntegrationTests.Infrastructure
 
         private static string RolesScriptPath()
         {
-            DirectoryInfo? directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory != null && !File.Exists(Path.Join(directory.FullName, "UrlShortener.sln")))
-            {
-                directory = directory.Parent;
-            }
-
-            if (directory == null)
-            {
-                throw new InvalidOperationException("Repository root (UrlShortener.sln) not found.");
-            }
-
-            return Path.Join(directory.FullName, "docker", "postgres", "init", "01-roles.sh");
+            return Path.Join(RepositoryPaths.Root(), "docker", "postgres", "init", "01-roles.sh");
         }
     }
 

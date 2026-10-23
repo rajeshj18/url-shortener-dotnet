@@ -5,3 +5,6 @@ dotnet_diagnostic.CA1707.severity = none
 # CA2100: integration tests deliberately execute literal SQL (schema inspection, privilege denials).
 # No user input reaches these strings. Production code keeps the rule.
 dotnet_diagnostic.CA2100.severity = none
+# CA5394: property-style tests use a SEEDED System.Random so failures are reproducible (TSK-07 decision D1).
+# Nothing security-relevant is generated with it.
+dotnet_diagnostic.CA5394.severity = none

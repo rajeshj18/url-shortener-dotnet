@@ -61,6 +61,9 @@ services:
       OpenTelemetry__Endpoint: http://otel-lgtm:4317
       # Api role: data read/write on links, no DDL (LLD §4.4).
       ConnectionStrings__LinksPrimary: "Host=postgres;Database=${POSTGRES_DB};Username=urlshortener_api;Password=${LINKS_API_PASSWORD}"
+      # Feistel passphrase (ADR-0005). Required, at least 32 characters, and it must never change once codes exist.
+      ShortCode__FeistelKey: "${SHORTCODE_FEISTEL_KEY:?set SHORTCODE_FEISTEL_KEY in .env (see .env.example)}"
+      ShortCode__DeploymentRegionIndex: "0"
     ports:
       - "127.0.0.1:5080:8080"
     depends_on:

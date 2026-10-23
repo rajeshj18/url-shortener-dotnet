@@ -9,7 +9,8 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 > **Current status: build phase, stage 1.**
 > - The design is complete: requirements, HLD, LLD and 13 accepted ADRs.
 > - The solution skeleton, the shared middleware and health endpoints, and the local Docker stack are in place (TSK-01 to TSK-03).
-> - The URL-shortening features follow from TSK-05; see the [task breakdown](docs/04-task-breakdown.md).
+> - The domain model, persistence and short-code generation are in place (TSK-05 to TSK-07).
+> - The create and redirect endpoints follow from TSK-08; see the [task breakdown](docs/04-task-breakdown.md).
 
 ## Run locally
 
@@ -23,6 +24,8 @@ A one-off `migrate` job applies the database schema first. `api` and `redirect` 
 > **Upgrading from an earlier checkout?** If your `.env` predates TSK-06, add the three `LINKS_*_PASSWORD` lines
 > from `.env.example`. Then run `docker compose down -v` **once**, because the database roles are created only on
 > a fresh data volume. This deletes your local database.
+> If it predates TSK-07, also add `SHORTCODE_FEISTEL_KEY` (at least 32 characters); compose refuses to start the Api
+> without it. No volume reset is needed for this one.
 
 *Windows (PowerShell):*
 ```powershell

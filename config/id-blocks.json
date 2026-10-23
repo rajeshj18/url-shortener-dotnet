@@ -1,0 +1,14 @@
+{
+  "_comment": "ID block registry (ADR-0005, LLD 6.4 runbook). The single source of truth for which region owns which IDs. Append new blocks only; never edit or remove a block that has been seeded. CI runs scripts/ci/check-id-blocks.py on every PR.",
+  "codeSpaceSize": 3521614606208,
+  "blocks": [
+    {
+      "blockId": "B-001",
+      "regionIndex": 0,
+      "rangeStart": 0,
+      "rangeEnd": 440201825776,
+      "assigned": "2026-10-22",
+      "note": "v1 single region; about 12 years at 100M codes/day"
+    }
+  ]
+}
