@@ -11,7 +11,8 @@ namespace UrlShortener.Application.ShortUrls
     /// <param name="IsCustom"><c>true</c> for an alias.</param>
     /// <param name="CreatedAt">Creation time (UTC).</param>
     /// <param name="DeletedAt">Deletion time, or <c>null</c> while active (TSK-10 D1: shown to the owner).</param>
-    public sealed record ShortUrlDetails(string Code, Uri ShortUrl, Uri LongUrl, bool IsCustom, DateTimeOffset CreatedAt, DateTimeOffset? DeletedAt);
+    /// <param name="ExpiresAt">Expiry, or <c>null</c> if the link never expires (TSK-14).</param>
+    public sealed record ShortUrlDetails(string Code, Uri ShortUrl, Uri LongUrl, bool IsCustom, DateTimeOffset CreatedAt, DateTimeOffset? DeletedAt, DateTimeOffset? ExpiresAt);
 
     /// <summary>Reads a link for its owner (FR-06, FR-09).</summary>
     public interface IGetShortUrlHandler

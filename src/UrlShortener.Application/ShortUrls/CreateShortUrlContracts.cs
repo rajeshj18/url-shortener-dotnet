@@ -8,7 +8,7 @@ namespace UrlShortener.Application.ShortUrls
     /// <param name="OwnerId">The authenticated caller.</param>
     /// <param name="Destination">The long URL exactly as sent, not yet validated (the handler validates it).</param>
     /// <param name="CustomAlias">The requested alias, or <c>null</c> for a generated code.</param>
-    /// <param name="ExpiresAt">The requested expiry; rejected until TSK-14.</param>
+    /// <param name="ExpiresAt">The requested expiry, or <c>null</c> for a link that never expires (TSK-14).</param>
     /// <param name="IdempotencyKey">The client's <c>Idempotency-Key</c>, already format-checked, or <c>null</c>.</param>
     public sealed record CreateShortUrlCommand(string OwnerId, string? Destination, string? CustomAlias, DateTimeOffset? ExpiresAt, string? IdempotencyKey);
 
@@ -17,7 +17,7 @@ namespace UrlShortener.Application.ShortUrls
     /// <param name="ShortUrl">The full short link.</param>
     /// <param name="LongUrl">The destination, exactly as sent.</param>
     /// <param name="CreatedAt">Creation time (UTC).</param>
-    /// <param name="ExpiresAt">Expiry (always <c>null</c> until TSK-14).</param>
+    /// <param name="ExpiresAt">Expiry (UTC), or <c>null</c> if the link never expires.</param>
     public sealed record CreatedShortUrl(string Code, Uri ShortUrl, Uri LongUrl, DateTimeOffset CreatedAt, DateTimeOffset? ExpiresAt);
 
     /// <summary>How a create ended.</summary>

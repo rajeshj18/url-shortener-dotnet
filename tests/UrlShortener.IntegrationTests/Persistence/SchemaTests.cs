@@ -30,23 +30,24 @@ namespace UrlShortener.IntegrationTests.Persistence
         }
 
         [Fact]
-        public async Task Short_urls_has_no_expiry_column_yet()
+        public async Task Short_urls_gained_only_the_expiry_column()
         {
+            // TSK-14 (expand-only): the TSK-06 columns are unchanged, expires_at is appended.
             List<string> columns = await QueryStrings(
                 "SELECT column_name FROM information_schema.columns WHERE table_name = 'short_urls' ORDER BY ordinal_position");
 
-            columns.Should().Equal("code", "long_url", "owner_id", "is_custom", "created_at", "deleted_at");
+            columns.Should().Equal("code", "long_url", "owner_id", "is_custom", "created_at", "deleted_at", "expires_at");
         }
 
         [Fact]
-        public async Task Redirect_lookup_exposes_only_three_columns_and_runs_as_owner()
+        public async Task Redirect_lookup_exposes_only_four_columns_and_runs_as_owner()
         {
             List<string> columns = await QueryStrings(
                 "SELECT column_name FROM information_schema.columns WHERE table_name = 'redirect_lookup' ORDER BY ordinal_position");
             List<string> options = await QueryStrings(
                 "SELECT coalesce(array_to_string(reloptions, ','), '') FROM pg_class WHERE relname = 'redirect_lookup'");
 
-            columns.Should().Equal("code", "long_url", "deleted_at");
+            columns.Should().Equal("code", "long_url", "deleted_at", "expires_at"); // TSK-14 appended expires_at
             options.Should().ContainSingle().Which.Should().NotContain("security_invoker");
         }
 

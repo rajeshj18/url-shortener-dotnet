@@ -112,7 +112,7 @@ trace ID** that logs and traces carry, whichever code path produced the problem 
 
 | Status | Codes |
 |---|---|
-| `400` | `url.required`, `url.length`, `url.characters`, `url.scheme`, `url.format`, `url.credentials`, `url.self-link`, `alias.required`, `alias.length`, `alias.characters`, `alias.generated-shape`, `alias.reserved`, `idempotency-key.format`, `expiry.unsupported` (until TSK-14) |
+| `400` | `url.required`, `url.length`, `url.characters`, `url.scheme`, `url.format`, `url.credentials`, `url.self-link`, `alias.required`, `alias.length`, `alias.characters`, `alias.generated-shape`, `alias.reserved`, `idempotency-key.format`, `expiry.past`, `expiry.too-far` (TSK-14; `expiry.unsupported` is no longer emitted but stays reserved) |
 | `404` | `link.not-found`: unknown code **or another client's link** (identical response, TSK-10) |
 | `409` | `alias.taken` |
 | `422` | `idempotency-key.reused` |
@@ -132,15 +132,15 @@ CREATE TABLE short_urls (
     owner_id    varchar(64)    NOT NULL,
     is_custom   boolean        NOT NULL,
     created_at  timestamptz    NOT NULL,
-    deleted_at  timestamptz    NULL                 -- soft delete; codes are never reused (A-25)
+    deleted_at  timestamptz    NULL,                -- soft delete; codes are never reused (A-25)
+    expires_at  timestamptz    NULL                 -- FR-04, added by TSK-14 (expand-only migration AddLinkExpiry)
 );
--- Expiry (FR-04) is added by the brownfield task TSK-14 as an expand-only migration (TSK-06 refinement R1):
---   expires_at timestamptz NULL, plus ix_short_urls_expires, and expires_at added to the view.
+-- An index on expires_at belongs to the future archiving job (§6.6); no query needs it yet, so TSK-14 didn't add it.
 
 -- The read contract for the Redirect service (ADR-0009). Redirect's database user may SELECT from this view only.
 -- The view runs with its OWNER's rights. Never set security_invoker = true (TSK-06 §9).
 CREATE VIEW redirect_lookup AS
-    SELECT code, long_url, deleted_at FROM short_urls;
+    SELECT code, long_url, deleted_at, expires_at FROM short_urls;   -- expires_at appended by TSK-14
 
 -- Region blocks owned by THIS deployment region (ADR-0005). v1: one row, B-001, region 0, [0, 440,201,825,776).
 CREATE TABLE id_blocks (
@@ -341,7 +341,7 @@ classDiagram
   because the view deliberately leaves out owner data, so a full `ShortUrl` can't be built from it.
 
 A future cache (ADR-0006) decorates `IRedirectLookup` (`CachedRedirectLookup`, rather than the `CachedUrlRepository` named in ADR-0006).
-`ShortUrl.State` is a property until expiry (TSK-14) makes it `GetState(now)`.
+**Expiry (TSK-14):** `ShortUrl.StateAt(now)` (and `RedirectTarget.StateAt(now)`) give deleted, then expired (`now ≥ expiresAt`), else active, through one shared rule (`ShortUrl.ComputeState`). The `State` property was kept, unchanged, as the deletion state only, so existing callers keep their meaning (the analyzer rejected the name `GetState` next to a `State` property, CA1721).
 
 `IClickEventPublisher.TryPublish` is **synchronous and never blocks**. It calls the Kafka client's
 `Produce`, which queues locally and returns immediately. If the queue is full, it returns `false` and the
@@ -410,7 +410,7 @@ Expired keys are deleted by the cleanup task in §6.6. Because of the 24 h check
 ### 6.2 Resolve (redirect)
 1. Check the code's shape (7 Base62 characters, or a valid alias shape). Malformed → `404` without touching the database.
 2. `IRedirectLookup.FindAsync` on a replica. If not found and the token bucket allows it, `FindOnPrimaryAsync` (read-your-writes).
-3. `GetState(now)`:
+3. `StateAt(now)` (TSK-14):
    - `NotFound` → `404` (`Cache-Control: no-store`)
    - `Deleted` or `Expired` → `410` (`Cache-Control: public, max-age=86400`)
    - `Active` → `302` (`Cache-Control: no-store`). `TryPublish(ClickEvent)` is called only for `GET` requests from non-bot clients. `HEAD` requests and link-preview bots get the same response but no click event (ADR-0007).

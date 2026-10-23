@@ -116,6 +116,10 @@ namespace UrlShortener.Infrastructure.Persistence.Links.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
                     b.Property<bool>("IsCustom")
                         .HasColumnType("boolean")
                         .HasColumnName("is_custom");

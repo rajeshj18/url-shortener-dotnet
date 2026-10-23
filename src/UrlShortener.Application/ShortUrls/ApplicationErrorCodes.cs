@@ -9,7 +9,10 @@ namespace UrlShortener.Application.ShortUrls
         /// <summary>The long URL points at our own short domain (FR-10, LLD §7).</summary>
         public const string UrlSelfLink = "url.self-link";
 
-        /// <summary><c>expiresAt</c> was sent, but expiry isn't available yet (TSK-14).</summary>
+        /// <summary>
+        /// <c>expiresAt</c> was sent before expiry existed. <b>No longer emitted</b> since TSK-14; kept because codes are
+        /// never reused or renamed. Expiry errors are now <c>expiry.past</c> and <c>expiry.too-far</c> (Domain).
+        /// </summary>
         public const string ExpiryUnsupported = "expiry.unsupported";
 
         /// <summary>The <c>Idempotency-Key</c> header isn't 1–128 printable ASCII characters.</summary>

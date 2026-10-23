@@ -61,9 +61,10 @@ namespace UrlShortener.Application.Redirects
                 return ResolveResult.NotFound;
             }
 
-            if (target.State != LinkState.Active)
+            DateTimeOffset now = _time.GetUtcNow();
+            if (target.StateAt(now) != LinkState.Active)
             {
-                return ResolveResult.Gone;
+                return ResolveResult.Gone; // deleted or expired (TSK-14)
             }
 
             if (!request.IsHead)
@@ -71,7 +72,6 @@ namespace UrlShortener.Application.Redirects
                 ClientKind kind = _classifier.Classify(request.UserAgent);
                 if (kind != ClientKind.Bot)
                 {
-                    DateTimeOffset now = _time.GetUtcNow();
                     _publisher.TryPublish(new ClickEvent(
                         1, UuidV7.Create(now), code.Value, now, ClickFields.ReferrerHost(request.Referrer), ClickFields.DeviceName(kind)));
                 }
