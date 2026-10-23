@@ -100,6 +100,7 @@ curl -i -X POST http://localhost:5080/api/v1/urls \
 ```
 
 - Add `"customAlias": "spring-sale"` for your own code. A taken alias returns `409`.
+- Add `"expiresAt": "2027-01-01T00:00:00Z"` for a link that expires: afterwards it answers `410 Gone`. It must be in the future and at most 10 years ahead.
 - Send the same request with the same `Idempotency-Key` again: you get the **same link** back with `Idempotent-Replayed: true`. The same key with a different body returns `422`.
 - Errors are RFC 7807 problems with a stable `code` (LLD §3).
 - `GET /api/v1/urls/<code>` shows your link; `DELETE /api/v1/urls/<code>` deletes it (`204`), after which the short URL answers `410 Gone`. Other clients get `404` for your links.
