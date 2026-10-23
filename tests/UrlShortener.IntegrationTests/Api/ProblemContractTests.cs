@@ -67,29 +67,20 @@ namespace UrlShortener.IntegrationTests.Api
         {
             using RedirectFactory redirect = new RedirectFactory(_db.RedirectConnection);
             using HttpClient browser = redirect.CreateClient();
-            Dictionary<string, HttpResponseMessage> responses = new Dictionary<string, HttpResponseMessage>
+            Dictionary<string, Func<Task<HttpResponseMessage>>> requests = new Dictionary<string, Func<Task<HttpResponseMessage>>>
             {
-                ["400 from our validation handler"] = await PostAsync(_caller, "{\"longUrl\":\"ftp://example.com/\"}"),
-                ["401 from the authentication challenge"] = await PostAsync(_anonymous),
-                ["404 from our controller"] = await _caller.GetAsync(new Uri("/api/v1/urls/" + TestCodes.NewAlias().Value, UriKind.Relative)),
-                ["404 from Redirect's status-code pages"] = await browser.GetAsync(new Uri("/zzzzzz9", UriKind.Relative)),
+                ["400 from our validation handler"] = () => PostAsync(_caller, "{\"longUrl\":\"ftp://example.com/\"}"),
+                ["401 from the authentication challenge"] = () => PostAsync(_anonymous),
+                ["404 from our controller"] = () => _caller.GetAsync(new Uri("/api/v1/urls/" + TestCodes.NewAlias().Value, UriKind.Relative)),
+                ["404 from Redirect's status-code pages"] = () => browser.GetAsync(new Uri("/zzzzzz9", UriKind.Relative)),
             };
 
-            try
+            foreach (KeyValuePair<string, Func<Task<HttpResponseMessage>>> request in requests)
             {
-                foreach (KeyValuePair<string, HttpResponseMessage> pair in responses)
-                {
-                    using JsonDocument body = JsonDocument.Parse(await pair.Value.Content.ReadAsStringAsync());
-                    string? traceId = body.RootElement.GetProperty("traceId").GetString();
-                    traceId.Should().MatchRegex(TraceIdPattern().ToString(), "{0} must use the same traceId format as the logs", pair.Key);
-                }
-            }
-            finally
-            {
-                foreach (HttpResponseMessage response in responses.Values)
-                {
-                    response.Dispose();
-                }
+                using HttpResponseMessage response = await request.Value();
+                using JsonDocument body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                string? traceId = body.RootElement.GetProperty("traceId").GetString();
+                traceId.Should().MatchRegex(TraceIdPattern().ToString(), "{0} must use the same traceId format as the logs", request.Key);
             }
         }
 
