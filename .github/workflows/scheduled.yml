@@ -19,7 +19,7 @@ jobs:
   dependencies:
     name: scheduled-dependencies
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest moves to Ubuntu 26 from 2026-10-19 (GitHub notice)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -34,7 +34,7 @@ jobs:
   codeql:
     name: scheduled-codeql
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '41 4 * * 1'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest moves to Ubuntu 26 from 2026-10-19 (GitHub notice)
     permissions:
       contents: read
       actions: read
