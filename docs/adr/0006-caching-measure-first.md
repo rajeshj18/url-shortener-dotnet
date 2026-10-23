@@ -41,3 +41,4 @@ The cache, if needed, becomes a brownfield enhancement with measured before/afte
 - 2026-10-21 · Revised to "measure first" after the engineer asked whether a cache is needed at all.
 - 2026-10-21 · **Accepted** · Engineer chose measure first.
 - 2026-10-21 · Context updated for PostgreSQL read replicas (hot keys spread across all replicas); "more replicas" added as the first lever.
+- 2026-10-23 · Naming note (TSK-06 R2, no change to the decision) · The repository was split by interface segregation. If the cache is added, it decorates **`IRedirectLookup`** (`CachedRedirectLookup`) instead of `IUrlRepository`, which no longer exists. See LLD §5.

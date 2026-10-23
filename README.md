@@ -17,7 +17,12 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) running, with about 2 GB free memory.
 - To build and test outside Docker: the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), version 8.0.424 or a later 8.0 SDK.
 
-**Start the stack** (the services are built from source; the first run takes ~2 min for image downloads and builds):
+**Start the stack** (the services are built from source; the first run takes ~2 min for image downloads and builds).
+A one-off `migrate` job applies the database schema first. `api` and `redirect` start only after it succeeds.
+
+> **Upgrading from an earlier checkout?** If your `.env` predates TSK-06, add the three `LINKS_*_PASSWORD` lines
+> from `.env.example`. Then run `docker compose down -v` **once**, because the database roles are created only on
+> a fresh data volume. This deletes your local database.
 
 *Windows (PowerShell):*
 ```powershell
@@ -64,7 +69,8 @@ docker compose down        # stop
 docker compose down -v     # stop and delete the local database volume
 ```
 
-Everything binds to `127.0.0.1` only. In stage 1 the stack is PostgreSQL, Grafana's `otel-lgtm`, Api and Redirect.
+Everything binds to `127.0.0.1` only. In stage 1 the stack is PostgreSQL (with 3 least-privilege roles), the `migrate` job, Grafana's `otel-lgtm`, Api and Redirect.
+It runs on x64 and arm64 (e.g. Apple Silicon).
 Kafka and the AnalyticsWorker are added in stage 2.
 
 ## Design at a glance
