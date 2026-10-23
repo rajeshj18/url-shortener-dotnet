@@ -7,6 +7,10 @@ Each entry names the task (`TSK-xx`) that made the change.
 ## [Unreleased]
 
 ### Fixed
+- `401` responses now carry `WWW-Authenticate: ApiKey header="X-Api-Key"`, which RFC 9110 §15.5.2 requires (TSK-15).
+- Every problem response's `traceId` is the 32-hex trace ID; framework-generated problems (`401`, unknown-code `404`) used to carry the full `traceparent`, which didn't match the logs (TSK-15).
+
+### Fixed
 - Docs: the HLD §3.2 redirect diagram failed to render on GitHub (a `;` inside a Mermaid message); HLD, LLD and README brought in line with what stage 1 built (DOC-01).
 
 ### Changed
