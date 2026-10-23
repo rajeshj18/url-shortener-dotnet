@@ -4,6 +4,10 @@
 > any build task starts). Changes after approval are recorded in the History section at the end. Each task gets a spec `docs/tasks/TSK-xx-*.md`, a branch `task/TSK-xx-*`, one PR and a
 > matching `TSK-xx` traceability entry.
 
+> **2026-10-23: stage 1 closed after TSK-15** (engineer's decision). TSK-16 to TSK-22 and stages 2–3 are
+> **descoped**: not built. The close-out task TSK-QW wrote the summary documents and fixed two small gaps.
+> Rows below keep their original plan for the record; descoped rows are marked.
+
 ## 1. Delivery plan: core first, then extend
 
 | Stage | Scope | Outcome |
@@ -76,41 +80,41 @@ Every stage only **adds** to the previous one. Nothing is redone, because the in
 |---|---|---|---|---|---|---|
 | TSK-14 | **Enhancement: link expiry** (FR-04): `expiresAt` on create, 410 after expiry, expand-only migration | 13 | High | 1 h | Unit: expiry rules · API: expired → 410 | FR-04 met; impact analysis written |
 | TSK-15 | **Bug fix:** a real defect found in the merged scenario-1 code, chosen when the task starts. A failing test is committed first, then the fix. *(Originally the alias race, 500 instead of 409; TSK-06's `TryInsertAsync` already returns `false` on a duplicate and TSK-08 inserts without a prior read, so that race can't occur. Decided at TSK-08 spec approval, D2.)* | 13 | High | 1.5 h | A test that reproduces the defect | The failing test is visible in the PR before the fix |
-| TSK-16 | **Refactor:** URL validation into separate `IUrlValidationRule` classes, with characterization tests first | 13 | Low | 1 h | Same tests pass before and after | Behavior unchanged |
-| TSK-17 | **Test and documentation improvement:** fill coverage gaps; complete the OpenAPI descriptions; JSON console logging, which ADR-0013 promises but the code lacks (added by the engineer on 2026-10-23) | 14–16 | Low | 1 h | Coverage report | Gaps closed; docs complete |
-| TSK-18 | Scenario 2 write-up, with an impact analysis per change | 14–17 | Low | 1 h | — | Evidence links |
+| TSK-16 | *(descoped 2026-10-23)* **Refactor:** URL validation into separate `IUrlValidationRule` classes, with characterization tests first | 13 | Low | 1 h | Same tests pass before and after | Behavior unchanged |
+| TSK-17 | *(descoped 2026-10-23)* **Test and documentation improvement:** fill coverage gaps; complete the OpenAPI descriptions; JSON console logging, which ADR-0013 promises but the code lacks (added by the engineer on 2026-10-23) | 14–16 | Low | 1 h | Coverage report | Gaps closed; docs complete |
+| TSK-18 | *(descoped 2026-10-23)* Scenario 2 write-up, with an impact analysis per change | 14–17 | Low | 1 h | — | Evidence links |
 
 #### Scenario 3: Ambiguous
 | ID | Task | Depends on | Risk | Est. | Tests | Done when |
 |---|---|---|---|---|---|---|
-| TSK-19 | *"Make it secure so people can't abuse it"*: clarifying questions → assumptions → measurable requirements; rate limits on create and redirect; threat-check interface with a local denylist | 16 | High | 2 h | Unit: denylist, limit rules · API: 429, blocked URL → 400 | Requirements recorded; tests pass |
-| TSK-20 | Scenario 3 write-up | 19 | Low | 1 h | — | The vague-to-measurable transformation is visible |
+| TSK-19 | *(descoped 2026-10-23)* *"Make it secure so people can't abuse it"*: clarifying questions → assumptions → measurable requirements; rate limits on create and redirect; threat-check interface with a local denylist | 16 | High | 2 h | Unit: denylist, limit rules · API: 429, blocked URL → 400 | Requirements recorded; tests pass |
+| TSK-20 | *(descoped 2026-10-23)* Scenario 3 write-up | 19 | Low | 1 h | — | The vague-to-measurable transformation is visible |
 
 #### Wrap-up
 | ID | Task | Depends on | Risk | Est. | Tests | Done when |
 |---|---|---|---|---|---|---|
-| TSK-21 | Demo scripts: `demo.ps1`/`demo.sh` (create → redirect → delete → 410); stop and restart the primary (circuit-breaker demo) | 11 | Medium | 1 h | Scripts run on a clean machine | — |
-| TSK-22 | Wrap-up: `05-testing-strategy`, `06-risks-tradeoffs`, `08-final-summary`, README setup and reviewer tour, clean-clone run, final confidentiality check | all | Medium | 3 h | Clean-clone run | A fresh clone runs end to end following the README. **Decision point 2.** |
+| TSK-21 | *(descoped 2026-10-23)* Demo scripts: `demo.ps1`/`demo.sh` (create → redirect → delete → 410); stop and restart the primary (circuit-breaker demo) | 11 | Medium | 1 h | Scripts run on a clean machine | — |
+| TSK-22 | *(descoped 2026-10-23)* Wrap-up: `05-testing-strategy`, `06-risks-tradeoffs`, `08-final-summary`, README setup and reviewer tour, clean-clone run, final confidentiality check | all | Medium | 3 h | Clean-clone run | A fresh clone runs end to end following the README. **Decision point 2.** |
 
 ### Stage 2: Lean (option B)
 | ID | Task | Depends on | Risk | Est. | Tests | Done when |
 |---|---|---|---|---|---|---|
-| TSK-23 | **Enhancement: analytics.** Kafka in compose, `ClickEvent v1`, Kafka producer in Redirect, AnalyticsWorker, `analytics` migrations (one aggregate table), stats endpoint (totals and time series) | 22 | High | 4 h | Integration: **each event counted exactly once with replayed events**, freshness ≤ 60 s | FR-07 partly met; brownfield write-up extended |
-| TSK-24 | CI extra gates: Trivy, ZAP baseline, k6 smoke; daily and nightly schedules | 04, 23 | High | 1.5 h | Gates proven to fail on a seeded issue | Required checks updated |
-| TSK-25 | Demo and docs updated for analytics | 23 | Low | 0.5 h | Demo script | — |
+| TSK-23 | *(descoped 2026-10-23)* **Enhancement: analytics.** Kafka in compose, `ClickEvent v1`, Kafka producer in Redirect, AnalyticsWorker, `analytics` migrations (one aggregate table), stats endpoint (totals and time series) | 22 | High | 4 h | Integration: **each event counted exactly once with replayed events**, freshness ≤ 60 s | FR-07 partly met; brownfield write-up extended |
+| TSK-24 | *(descoped 2026-10-23)* CI extra gates: Trivy, ZAP baseline, k6 smoke; daily and nightly schedules | 04, 23 | High | 1.5 h | Gates proven to fail on a seeded issue | Required checks updated |
+| TSK-25 | *(descoped 2026-10-23)* Demo and docs updated for analytics | 23 | Low | 0.5 h | Demo script | — |
 
 ### Stage 3: Full (option A)
 | ID | Task | Depends on | Risk | Est. | Tests | Done when |
 |---|---|---|---|---|---|---|
-| TSK-26 | Analytics breakdowns (referrer, device), backfilled by replaying Kafka | 23 | High | 2 h | Integration: replay backfill | FR-07 fully met |
-| TSK-27 | SLO dashboards and burn-rate alerts as code | 23 | Medium | 2 h | Dashboards provisioned | — |
-| TSK-28 | Stryker mutation testing | 17 | Low | 1 h | Mutation score reported | — |
-| TSK-29 | Scenario 3 extension: abuse detection on redirect misses; separate write-ups | 19, 23 | Medium | 2 h | API: scanning a client gets throttled | — |
+| TSK-26 | *(descoped 2026-10-23)* Analytics breakdowns (referrer, device), backfilled by replaying Kafka | 23 | High | 2 h | Integration: replay backfill | FR-07 fully met |
+| TSK-27 | *(descoped 2026-10-23)* SLO dashboards and burn-rate alerts as code | 23 | Medium | 2 h | Dashboards provisioned | — |
+| TSK-28 | *(descoped 2026-10-23)* Stryker mutation testing | 17 | Low | 1 h | Mutation score reported | — |
+| TSK-29 | *(descoped 2026-10-23)* Scenario 3 extension: abuse detection on redirect misses; separate write-ups | 19, 23 | Medium | 2 h | API: scanning a client gets throttled | — |
 
 ### Conditional (any stage)
 | ID | Task | Trigger | Risk | Est. |
 |---|---|---|---|---|
-| TSK-30 | Cache decorator with Valkey, with before/after numbers in ADR-0006 | TSK-12 fails its pass/fail criteria | High | 3 h |
+| TSK-30 | *(descoped 2026-10-23)* Cache decorator with Valkey, with before/after numbers in ADR-0006 | TSK-12 fails its pass/fail criteria | High | 3 h |
 
 ## 4. Dependencies and critical path (stage 1)
 
@@ -202,3 +206,4 @@ says so openly: the in-depth design phase was a deliberate choice, recorded in t
 - 2026-10-22 · **Re-estimate point 1 accepted** · Stage 1 ~16 h, all stages ~21.5 h; stages 2 and 3 planned (§5.1).
 - 2026-10-23 · Changed at TSK-08 spec approval (D2) · The planned v1 alias race can't occur: TSK-06's `TryInsertAsync` returns `false` on a duplicate, and TSK-08 inserts without a prior read. TSK-15 will fix a **real** defect from the merged code instead of a planted one. Approved by the engineer.
 - 2026-10-23 · Changed by the engineer · TSK-17 also configures JSON console logging (ADR-0013 says "plus JSON console output"; the services use the plain-text formatter). Found while answering a question about logging.
+- 2026-10-23 · **Stage 1 closed** by the engineer after TSK-15: TSK-16 to TSK-22 and stages 2–3 descoped. One close-out task, TSK-QW, approved the same day (one PR): final summary, testing strategy, risks and trade-offs, scenario 2 write-up, honest status, JSON console logging, `500` for corrupt stored rows, and a clean-clone run.

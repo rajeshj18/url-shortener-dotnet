@@ -6,11 +6,11 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 **AI-assisted engineering workflow** used to build it. Both are deliverables
 ([ADR-0001](docs/adr/0001-deliverable-scope-product-and-workflow.md)).
 
-> **Current status: build phase, stage 1.**
-> - The design is complete: requirements, HLD, LLD and 13 accepted ADRs.
-> - The solution skeleton, the shared middleware and health endpoints, and the local Docker stack are in place (TSK-01 to TSK-03).
-> - The domain model, persistence and short-code generation are in place (TSK-05 to TSK-07).
-> - **Create, redirect, metadata and delete work** (`POST /api/v1/urls`, TSK-08; `GET /{code}`, TSK-09; `GET`/`DELETE /api/v1/urls/{code}`, TSK-10). They have timeouts, retries and circuit breakers (TSK-11), and a v1 load test with a k6 smoke gate in CI (TSK-12). Scenario 1's write-up follows in TSK-13; see the [task breakdown](docs/04-task-breakdown.md).
+> **Current status: stage 1 closed after TSK-15** (engineer's decision, 2026-10-23), plus the close-out task TSK-QW.
+> - Built and tested: create, redirect, metadata and delete, idempotent retries, short-code generation, resilience,
+>   link expiry, a load test and a k6 gate in CI. See the [final summary](docs/08-final-summary.md).
+> - **Descoped, not built:** the validation refactor (TSK-16), scenario 3 (TSK-19, TSK-20), demo scripts and
+>   dashboards (TSK-21, TSK-22), and stages 2–3 (analytics, extra CI gates).
 
 ## Run locally
 
@@ -52,7 +52,7 @@ bash scripts/compose-smoke.sh
 | Grafana (traces, logs, metrics) | http://localhost:3000. See "Viewing telemetry" below. |
 | **Swagger UI** (try the API in the browser) | http://localhost:5080/swagger. Click **Authorize** and enter the dev key below. |
 
-**Viewing telemetry.** Our own dashboards arrive in TSK-22. The bundled "JVM" and "RED Metrics" dashboards
+**Viewing telemetry.** There are no project dashboards (TSK-22 was descoped); use Grafana's **Explore**. The bundled "JVM" and "RED Metrics" dashboards
 expect other metric names, so they look empty. Until then, use **Explore** (compass icon) with the time
 range set to *Last 15 minutes*:
 
@@ -142,13 +142,13 @@ Run a test yourself (stack running): `bash scripts/load-test.sh redirect` (or `h
 | [docs/02-system-design.md](docs/02-system-design.md) | **Capacity, SLO/SLA and LLD**: API contract, SQL schema, classes, algorithms, validation, configuration | Current for stage 1, with implementation notes per task |
 | [docs/adr/](docs/adr/README.md) | 13 architecture decision records | All 13 Accepted |
 | [docs/assumptions.md](docs/assumptions.md) | Assumptions register (we proceeded without external clarification) | Living document |
-| [docs/scenarios/](docs/scenarios/README.md) | Greenfield, brownfield and ambiguous scenarios | Scenario 1 [done](docs/scenarios/01-greenfield.md); 2 and 3 planned |
+| [docs/scenarios/](docs/scenarios/README.md) | Greenfield, brownfield and ambiguous scenarios | [Scenario 1](docs/scenarios/01-greenfield.md) and [scenario 2](docs/scenarios/02-brownfield.md) done; scenario 3 **descoped** |
 | [docs/ai-usage/traceability-log.md](docs/ai-usage/traceability-log.md) | What the AI produced and whether it was accepted, edited or rejected | Living document |
 | [docs/01-requirements.md](docs/01-requirements.md) | Problem statement, functional (FR) and non-functional (NFR) requirements, out of scope | Draft, including the traceability matrix to the brief |
 | [docs/04-task-breakdown.md](docs/04-task-breakdown.md) | Staged plan (core → lean → full), definition of done incl. test-metrics gate, tasks, critical path, estimates | Approved |
-| `docs/05-testing-strategy.md`, `docs/06-risks-tradeoffs.md`, `docs/08-final-summary.md` | Testing, risks and summary | Planned |
+| [docs/05-testing-strategy.md](docs/05-testing-strategy.md), [docs/06-risks-tradeoffs.md](docs/06-risks-tradeoffs.md), [docs/08-final-summary.md](docs/08-final-summary.md) | Testing approach, risks and trade-offs, final engineering summary | Done (TSK-QW) |
 
-**Suggested reading order for reviewers:** this README → requirements → HLD → ADR index → LLD → assumptions → scenarios → traceability log.
+**Suggested reading order for reviewers:** this README → [final summary](docs/08-final-summary.md) → requirements → HLD → ADR index → LLD → scenarios → testing strategy → risks and trade-offs → traceability log.
 
 ## How AI is used
 
