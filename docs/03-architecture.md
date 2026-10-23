@@ -99,11 +99,12 @@ sequenceDiagram
     else deleted or expired
         R-->>B: 410 Gone
     else active
-        R--)K: Produce ClickEvent (non-blocking; GET from non-bots only)
+        R--)K: Produce ClickEvent (non-blocking, GET from non-bots only, stage 2)
         R-->>B: 302 Location: longUrl (Cache-Control: no-store)
     end
 ```
 Caching headers per status, and handling of `HEAD` and link-preview requests, are defined in ADR-0007.
+In stage 1 the click event is built and counted but discarded (no-op publisher); Kafka arrives in stage 2 (TSK-23).
 
 ### 3.3 Delete
 `DELETE /api/v1/urls/{code}` → owner check on the primary → `UPDATE … SET deleted_at` → 204. Replicas
@@ -160,14 +161,15 @@ How step 4 is done depends on the setup:
 What our services do during failover is described in LLD §6.7.
 
 ### 4.2 Local (prototype)
-`docker compose up` starts:
-- `postgres:16-alpine` (the `links` and `analytics` databases)
-- `apache/kafka` (single node, KRaft)
-- `grafana/otel-lgtm`
-- the three .NET services (Redirect, Api, AnalyticsWorker)
-- a one-off `migrate` step that runs the EF Core migration bundles. The services start only after it succeeds.
+`docker compose up` starts, in **stage 1**:
+- `postgres:16.15-alpine` (the `links` database; it also plays the read replicas, so there is no replication lag locally)
+- `grafana/otel-lgtm:0.37.0` (Grafana with Prometheus, Tempo and Loki)
+- a one-off `migrate` step that runs the EF Core migration bundle. The services start only after it succeeds.
+- the Api and Redirect services
 
-Optional profiles add a streaming read replica and, if ADR-0006 triggers, Valkey.
+**Stage 2** (TSK-23) adds `apache/kafka` (single node, KRaft), the `analytics` database and the AnalyticsWorker.
+A streaming read replica and Valkey (only if ADR-0006 triggers; the TSK-12 load test showed it doesn't) are not
+part of the prototype.
 **There is no automatic failover locally**: it would need Patroni and etcd. The local resilience demo
 stops and restarts the primary to show our side of a failover: fast `503`s while the breaker is open,
 redirects continuing, then writes resuming. Promotion itself is the HA layer's job and is documented
