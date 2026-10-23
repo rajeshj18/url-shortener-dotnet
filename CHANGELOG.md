@@ -6,6 +6,9 @@ Each entry names the task (`TSK-xx`) that made the change.
 
 ## [Unreleased]
 
+### Fixed
+- Docs: the HLD §3.2 redirect diagram failed to render on GitHub (a `;` inside a Mermaid message); HLD, LLD and README brought in line with what stage 1 built (DOC-01).
+
 ### Changed
 - Integration tests share one in-memory Api host (`PostgresFixture.SharedApi`): more than 20 hosts in one process trip EF Core's `ManyServiceProvidersCreatedWarning` (TSK-08).
 - The Api test host captures logs through DI, so tests can assert what is never logged (TSK-08).
