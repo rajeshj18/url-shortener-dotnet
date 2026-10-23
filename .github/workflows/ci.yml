@@ -131,8 +131,11 @@ jobs:
           curl -sSfL -o checksums.txt "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
           grep " ${file}\$" checksums.txt | sha256sum -c -
           tar -xzf "$file" gitleaks
-      - name: Scan the full git history for secrets
-        run: ./gitleaks git --redact --verbose --exit-code 1 .
+      # Scope the scan to the history being checked (HEAD = the PR merge commit, or main). fetch-depth: 0
+      # fetches EVERY branch, and gitleaks defaults to all refs, so an unrelated branch could fail this PR.
+      # Found in TSK-04, when the AC3 proof branch's fake key failed the TSK-04 PR.
+      - name: Scan the full git history of this change for secrets
+        run: ./gitleaks git --redact --verbose --exit-code 1 --log-opts="HEAD" .
 
   dependencies:
     name: dependencies
