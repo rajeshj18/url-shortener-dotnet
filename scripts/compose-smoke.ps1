@@ -26,6 +26,9 @@ while ($true) {
         $name = (docker inspect --format '{{.Name}}' $id).TrimStart('/')
         $state = docker inspect --format '{{.State.Status}}' $id
         $health = docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' $id
+        $exitCode = docker inspect --format '{{.State.ExitCode}}' $id
+        # One-off jobs (e.g. migrate) are fine once they have exited successfully.
+        if ($state -eq 'exited' -and $exitCode -eq '0' -and $health -eq 'none') { continue }
         if ($state -ne 'running' -or $health -ne 'healthy') { $unhealthy += "$name($state/$health)" }
     }
     if ($unhealthy.Count -eq 0) { break }

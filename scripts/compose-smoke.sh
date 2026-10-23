@@ -24,6 +24,11 @@ while :; do
     name=$(docker inspect --format '{{.Name}}' "$id" | sed 's#^/##')
     state=$(docker inspect --format '{{.State.Status}}' "$id")
     health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")
+    exit_code=$(docker inspect --format '{{.State.ExitCode}}' "$id")
+    # One-off jobs (e.g. migrate) are fine once they have exited successfully.
+    if [ "$state" = "exited" ] && [ "$exit_code" = "0" ] && [ "$health" = "none" ]; then
+      continue
+    fi
     if [ "$state" != "running" ] || [ "$health" != "healthy" ]; then
       unhealthy="$unhealthy $name($state/$health)"
     fi
