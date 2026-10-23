@@ -5,7 +5,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using UrlShortener.Application.Ports;
 using UrlShortener.Application.ShortUrls;
+using UrlShortener.Infrastructure.Housekeeping;
 using UrlShortener.Infrastructure.Persistence.Links;
+using UrlShortener.Infrastructure.Resilience;
 
 namespace UrlShortener.Infrastructure.ShortUrls
 {
@@ -28,11 +30,28 @@ namespace UrlShortener.Infrastructure.ShortUrls
 
             Uri publicBaseUrl = ReadPublicBaseUrl(configuration);
             SelfLinkCheck selfLinkCheck = new SelfLinkCheck(publicBaseUrl);
+            ResilienceOptions resilience = ResilienceConfiguration.Read(configuration);
 
             services.TryAddSingleton(TimeProvider.System);
+            services.AddSingleton(resilience);
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
             services.AddScoped<IIdempotencyStore, EfIdempotencyStore>();
-            services.AddScoped<ICreateShortUrlHandler>(provider => new CreateShortUrlHandler(
+
+            // Api → primary: one breaker per instance; when it opens, the pool is cleared so the trial call
+            // reconnects through the writer endpoint (LLD §6.7).
+            services.AddSingleton(provider => new DatabaseCircuitBreaker(
+                "links-primary",
+                resilience,
+                provider.GetRequiredService<TimeProvider>(),
+                () => provider.GetRequiredService<LinksPrimaryDataSource>().ClearPool()));
+            services.AddSingleton<PrimaryDatabaseResilience>();
+            services.AddSingleton<ICreateShortUrlHandler, ResilientCreateShortUrlHandler>();
+            services.AddSingleton<IGetShortUrlHandler, ResilientGetShortUrlHandler>();
+            services.AddSingleton<IDeleteShortUrlHandler, ResilientDeleteShortUrlHandler>();
+            services.AddHostedService<IdempotencyKeyCleanupService>();
+
+            // The undecorated use cases, resolved by the decorators in a fresh scope per attempt.
+            services.AddKeyedScoped<ICreateShortUrlHandler>(ResilienceKeys.Inner, (provider, _) => new CreateShortUrlHandler(
                 provider.GetRequiredService<IUnitOfWork>(),
                 provider.GetRequiredService<IShortUrlRepository>(),
                 provider.GetRequiredService<IShortCodeGenerator>(),
@@ -41,9 +60,9 @@ namespace UrlShortener.Infrastructure.ShortUrls
                 publicBaseUrl,
                 provider.GetRequiredService<TimeProvider>(),
                 provider.GetRequiredService<ILogger<CreateShortUrlHandler>>()));
-            services.AddScoped<IGetShortUrlHandler>(provider =>
+            services.AddKeyedScoped<IGetShortUrlHandler>(ResilienceKeys.Inner, (provider, _) =>
                 new GetShortUrlHandler(provider.GetRequiredService<IShortUrlRepository>(), publicBaseUrl));
-            services.AddScoped<IDeleteShortUrlHandler>(provider =>
+            services.AddKeyedScoped<IDeleteShortUrlHandler>(ResilienceKeys.Inner, (provider, _) =>
                 new DeleteShortUrlHandler(provider.GetRequiredService<IShortUrlRepository>(), provider.GetRequiredService<TimeProvider>()));
             return services;
         }

@@ -76,7 +76,26 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         /// <inheritdoc />
         public async Task DisposeAsync()
         {
+            if (_sharedApi != null)
+            {
+                await _sharedApi.DisposeAsync();
+            }
+
             await _container.DisposeAsync();
+        }
+
+        /// <summary>Freezes the database container (fault injection, TSK-11): connections hang, like a failed node.</summary>
+        /// <returns>A task.</returns>
+        public Task PauseAsync()
+        {
+            return _container.PauseAsync();
+        }
+
+        /// <summary>Resumes the database container.</summary>
+        /// <returns>A task.</returns>
+        public Task UnpauseAsync()
+        {
+            return _container.UnpauseAsync();
         }
 
         /// <inheritdoc />

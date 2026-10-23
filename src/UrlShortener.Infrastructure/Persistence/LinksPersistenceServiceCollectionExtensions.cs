@@ -6,6 +6,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 using UrlShortener.Application.Ports;
 using UrlShortener.Infrastructure.Persistence.Links;
+using UrlShortener.Infrastructure.Resilience;
 using UrlShortener.Infrastructure.Web;
 
 namespace UrlShortener.Infrastructure.Persistence
@@ -34,7 +35,9 @@ namespace UrlShortener.Infrastructure.Persistence
             ArgumentNullException.ThrowIfNull(services);
             ArgumentNullException.ThrowIfNull(configuration);
 
-            string primary = RequiredConnectionString(configuration, PrimaryConnectionName);
+            ResilienceOptions resilience = ResilienceConfiguration.Read(configuration);
+            string primary = ResilienceConfiguration.ApplyDatabaseTimeouts(
+                RequiredConnectionString(configuration, PrimaryConnectionName), resilience, withStatementTimeout: true);
 
             // Registered by factory, not by instance: the container disposes only objects it creates itself,
             // and a data source owns a connection pool (found by CA2000).
@@ -63,8 +66,11 @@ namespace UrlShortener.Infrastructure.Persistence
             ArgumentNullException.ThrowIfNull(services);
             ArgumentNullException.ThrowIfNull(configuration);
 
-            string primary = RequiredConnectionString(configuration, PrimaryConnectionName);
-            string replicas = RequiredConnectionString(configuration, ReplicasConnectionName);
+            ResilienceOptions resilience = ResilienceConfiguration.Read(configuration);
+            string primary = ResilienceConfiguration.ApplyDatabaseTimeouts(
+                RequiredConnectionString(configuration, PrimaryConnectionName), resilience, withStatementTimeout: false);
+            string replicas = ResilienceConfiguration.ApplyDatabaseTimeouts(
+                RequiredConnectionString(configuration, ReplicasConnectionName), resilience, withStatementTimeout: false);
             services.AddSingleton(_ => new LinksPrimaryDataSource(NpgsqlDataSource.Create(primary)));
             services.AddSingleton(_ => new LinksReplicaDataSource(NpgsqlDataSource.Create(replicas)));
             services.AddSingleton<IRedirectLookup, NpgsqlRedirectLookup>();

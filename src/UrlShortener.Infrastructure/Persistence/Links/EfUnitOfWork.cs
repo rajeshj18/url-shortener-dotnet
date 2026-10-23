@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Storage;
 using UrlShortener.Application.Ports;
+using UrlShortener.Infrastructure.Resilience;
 
 namespace UrlShortener.Infrastructure.Persistence.Links
 {
@@ -37,9 +38,17 @@ namespace UrlShortener.Infrastructure.Persistence.Links
                 _transaction = transaction;
             }
 
-            public Task CommitAsync(CancellationToken cancellationToken)
+            public async Task CommitAsync(CancellationToken cancellationToken)
             {
-                return _transaction.CommitAsync(cancellationToken);
+                try
+                {
+                    await _transaction.CommitAsync(cancellationToken);
+                }
+                catch (Exception exception) when (TransientDatabaseErrors.IsTransient(exception))
+                {
+                    // COMMIT was sent; the server may have applied it. Callers decide whether a retry is safe (LLD §6.7).
+                    throw new CommitOutcomeUnknownException("The commit failed; whether it took effect is unknown.", exception);
+                }
             }
 
             public Task CreateSavepointAsync(string name, CancellationToken cancellationToken)

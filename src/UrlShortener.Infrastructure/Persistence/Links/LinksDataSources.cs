@@ -19,6 +19,16 @@ namespace UrlShortener.Infrastructure.Persistence.Links
         /// <summary>The underlying data source.</summary>
         public NpgsqlDataSource DataSource { get; }
 
+        /// <summary>
+        /// Drops idle pooled connections, so the next call opens a fresh one through the writer endpoint (which moves
+        /// to the new primary on failover). Called when the primary's breaker opens (LLD §6.7).
+        /// </summary>
+        public void ClearPool()
+        {
+            using NpgsqlConnection connection = DataSource.CreateConnection();
+            NpgsqlConnection.ClearPool(connection);
+        }
+
         /// <inheritdoc />
         public void Dispose()
         {

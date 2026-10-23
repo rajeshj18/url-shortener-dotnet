@@ -1,7 +1,9 @@
+using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using UrlShortener.Infrastructure.Observability;
 using UrlShortener.Infrastructure.Persistence;
+using UrlShortener.Infrastructure.Resilience;
 using UrlShortener.Infrastructure.ShortCodes;
 using UrlShortener.Infrastructure.ShortUrls;
 using UrlShortener.Infrastructure.Web;
@@ -26,7 +28,9 @@ namespace UrlShortener.Api
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllers();
-            builder.Services.AddUrlShortenerWebDefaults();
+            // LLD §6.7: the whole request gets 3 s; a database outage answers 503 with Retry-After: 5.
+            TimeSpan requestTimeout = ResilienceConfiguration.Read(builder.Configuration).RequestTimeout ?? TimeSpan.FromSeconds(3);
+            builder.Services.AddUrlShortenerWebDefaults(requestTimeout, unavailableRetryAfterSeconds: 5);
             builder.Services.AddApiKeyAuthentication(builder.Configuration);
             builder.Services.AddUrlShortenerHealthChecks();
             builder.Services.AddLinksWriteStore(builder.Configuration);
