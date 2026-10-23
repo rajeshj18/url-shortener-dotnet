@@ -185,24 +185,39 @@ namespace UrlShortener.UnitTests.Infrastructure.Resilience
         }
 
         [Fact]
-        public void Database_timeouts_are_added_unless_the_connection_string_sets_them()
+        public void Connection_defaults_are_added_unless_the_connection_string_sets_them()
         {
             ResilienceOptions options = new ResilienceOptions();
 
             NpgsqlConnectionStringBuilder plain = new NpgsqlConnectionStringBuilder(
-                ResilienceConfiguration.ApplyDatabaseTimeouts("Host=db;Database=links", options, withStatementTimeout: true));
-            NpgsqlConnectionStringBuilder explicitValues = new NpgsqlConnectionStringBuilder(
-                ResilienceConfiguration.ApplyDatabaseTimeouts("Host=db;Timeout=9;Command Timeout=8;Options=-c statement_timeout=7000", options, withStatementTimeout: true));
+                ResilienceConfiguration.ApplyConnectionDefaults("Host=db;Database=links", options, 30, withStatementTimeout: true));
+            NpgsqlConnectionStringBuilder explicitValues = new NpgsqlConnectionStringBuilder(ResilienceConfiguration.ApplyConnectionDefaults(
+                "Host=db;Timeout=9;Command Timeout=8;Maximum Pool Size=7;Options=-c statement_timeout=7000", options, 30, withStatementTimeout: true));
             NpgsqlConnectionStringBuilder replica = new NpgsqlConnectionStringBuilder(
-                ResilienceConfiguration.ApplyDatabaseTimeouts("Host=db", options, withStatementTimeout: false));
+                ResilienceConfiguration.ApplyConnectionDefaults("Host=db", options, 10, withStatementTimeout: false));
+            Action noPool = () => ResilienceConfiguration.ApplyConnectionDefaults("Host=db", options, 0, false);
 
             plain.Timeout.Should().Be(2);
             plain.CommandTimeout.Should().Be(1);
+            plain.MaxPoolSize.Should().Be(30, "uncapped pools exhausted max_connections under load (TSK-12)");
             plain.Options.Should().Be("-c statement_timeout=2000");
             explicitValues.Timeout.Should().Be(9);
             explicitValues.CommandTimeout.Should().Be(8);
+            explicitValues.MaxPoolSize.Should().Be(7);
             explicitValues.Options.Should().Be("-c statement_timeout=7000");
+            replica.MaxPoolSize.Should().Be(10);
             replica.Options.Should().BeNullOrEmpty();
+            noPool.Should().Throw<ArgumentOutOfRangeException>();
+        }
+
+        [Fact]
+        public void Default_pool_caps_leave_headroom_under_max_connections()
+        {
+            // LLD 6.7: one Api plus one Redirect instance stay well below PostgreSQL's default 100 connections,
+            // leaving room for the migrator, the cleanup job's extra session and an operator.
+            ResilienceOptions options = new ResilienceOptions();
+
+            (options.ApiPrimaryMaxPoolSize + options.RedirectReplicaMaxPoolSize + options.RedirectPrimaryMaxPoolSize).Should().BeLessThanOrEqualTo(80);
         }
 
         [Fact]

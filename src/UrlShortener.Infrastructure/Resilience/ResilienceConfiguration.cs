@@ -21,15 +21,22 @@ namespace UrlShortener.Infrastructure.Resilience
         }
 
         /// <summary>
-        /// Adds connect and command timeouts (and optionally the server-side <c>statement_timeout</c>, TSK-11 D1) to a
-        /// connection string. Values already in the connection string are kept: it is the more specific setting.
+        /// Adds connect and command timeouts, a pool cap (TSK-11b), and optionally the server-side
+        /// <c>statement_timeout</c> (TSK-11 D1) to a connection string. Values already in the connection string are
+        /// kept: it is the more specific setting.
         /// </summary>
         /// <param name="connectionString">The configured connection string.</param>
         /// <param name="options">The defaults.</param>
+        /// <param name="maxPoolSize">Pool cap for this data source.</param>
         /// <param name="withStatementTimeout"><c>true</c> for the Api's writer connection.</param>
-        /// <returns>The connection string with the timeouts.</returns>
-        public static string ApplyDatabaseTimeouts(string connectionString, ResilienceOptions options, bool withStatementTimeout)
+        /// <returns>The connection string with the defaults applied.</returns>
+        public static string ApplyConnectionDefaults(string connectionString, ResilienceOptions options, int maxPoolSize, bool withStatementTimeout)
         {
+            if (maxPoolSize < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxPoolSize), "A connection pool needs at least 1 connection.");
+            }
+
             ArgumentNullException.ThrowIfNull(connectionString);
             ArgumentNullException.ThrowIfNull(options);
 
@@ -44,6 +51,11 @@ namespace UrlShortener.Infrastructure.Resilience
             if (!HasAny(written, "Command Timeout", "CommandTimeout"))
             {
                 builder.CommandTimeout = options.CommandTimeoutSeconds;
+            }
+
+            if (!HasAny(written, "Max Pool Size", "MaxPoolSize", "Maximum Pool Size"))
+            {
+                builder.MaxPoolSize = maxPoolSize;
             }
 
             if (withStatementTimeout && (builder.Options == null || !builder.Options.Contains("statement_timeout", StringComparison.OrdinalIgnoreCase)))
