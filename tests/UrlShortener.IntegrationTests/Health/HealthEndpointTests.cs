@@ -33,7 +33,8 @@ namespace UrlShortener.IntegrationTests.Health
         public async Task Api_health_endpoint_returns_200(string path)
         {
             using ApiFactory factory = new ApiFactory(_db.ApiConnection);
-            await AssertStatusAsync(factory.CreateClient(), path, HttpStatusCode.OK);
+            using HttpClient client = factory.CreateClient();
+            await AssertStatusAsync(client, path, HttpStatusCode.OK);
         }
 
         [Theory]
@@ -42,7 +43,8 @@ namespace UrlShortener.IntegrationTests.Health
         public async Task Redirect_health_endpoint_returns_200(string path)
         {
             using RedirectFactory factory = new RedirectFactory(_db.RedirectConnection);
-            await AssertStatusAsync(factory.CreateClient(), path, HttpStatusCode.OK);
+            using HttpClient client = factory.CreateClient();
+            await AssertStatusAsync(client, path, HttpStatusCode.OK);
         }
 
         [Theory]
@@ -51,16 +53,17 @@ namespace UrlShortener.IntegrationTests.Health
         public async Task AnalyticsWorker_health_endpoint_returns_200(string path)
         {
             using WebApplicationFactory<UrlShortener.AnalyticsWorker.Program> factory = new WebApplicationFactory<UrlShortener.AnalyticsWorker.Program>();
-            await AssertStatusAsync(factory.CreateClient(), path, HttpStatusCode.OK);
+            using HttpClient client = factory.CreateClient();
+            await AssertStatusAsync(client, path, HttpStatusCode.OK);
         }
 
         [Fact]
         public async Task Api_database_down_is_live_but_not_ready()
         {
             using ApiFactory factory = new ApiFactory(UnreachableDatabase);
-            HttpClient client = factory.CreateClient();
+            using HttpClient client = factory.CreateClient();
 
-            await AssertStatusAsync(client, HealthEndpointExtensions.LivePath, HttpStatusCode.OK, dispose: false);
+            await AssertStatusAsync(client, HealthEndpointExtensions.LivePath, HttpStatusCode.OK);
             await AssertStatusAsync(client, HealthEndpointExtensions.ReadyPath, HttpStatusCode.ServiceUnavailable);
         }
 
@@ -68,27 +71,17 @@ namespace UrlShortener.IntegrationTests.Health
         public async Task Redirect_database_down_is_live_but_not_ready()
         {
             using RedirectFactory factory = new RedirectFactory(UnreachableDatabase);
-            HttpClient client = factory.CreateClient();
+            using HttpClient client = factory.CreateClient();
 
-            await AssertStatusAsync(client, HealthEndpointExtensions.LivePath, HttpStatusCode.OK, dispose: false);
+            await AssertStatusAsync(client, HealthEndpointExtensions.LivePath, HttpStatusCode.OK);
             await AssertStatusAsync(client, HealthEndpointExtensions.ReadyPath, HttpStatusCode.ServiceUnavailable);
         }
 
-
-        private static async Task AssertStatusAsync(HttpClient client, string path, HttpStatusCode expected, bool dispose = true)
+        /// <summary>Asserts the status code. The caller owns, and disposes, the client (CodeQL "missed using" note).</summary>
+        private static async Task AssertStatusAsync(HttpClient client, string path, HttpStatusCode expected)
         {
-            try
-            {
-                using HttpResponseMessage response = await client.GetAsync(new Uri(path, UriKind.Relative));
-                response.StatusCode.Should().Be(expected);
-            }
-            finally
-            {
-                if (dispose)
-                {
-                    client.Dispose();
-                }
-            }
+            using HttpResponseMessage response = await client.GetAsync(new Uri(path, UriKind.Relative));
+            response.StatusCode.Should().Be(expected);
         }
     }
 }

@@ -72,7 +72,7 @@ namespace UrlShortener.ArchitectureTests
 
         private static List<string> ProjectReferencesOf(string project)
         {
-            string csproj = Path.Combine(RepositoryRoot(), "src", project, project + ".csproj");
+            string csproj = Path.Join(RepositoryRoot(), "src", project, project + ".csproj");
             XDocument document = XDocument.Load(csproj);
             return document.Descendants("ProjectReference")
                 .Select(reference => ReferenceName((string?)reference.Attribute("Include") ?? string.Empty))
@@ -88,7 +88,7 @@ namespace UrlShortener.ArchitectureTests
         private static string RepositoryRoot()
         {
             DirectoryInfo? directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "UrlShortener.sln")))
+            while (directory != null && !File.Exists(Path.Join(directory.FullName, "UrlShortener.sln")))
             {
                 directory = directory.Parent;
             }

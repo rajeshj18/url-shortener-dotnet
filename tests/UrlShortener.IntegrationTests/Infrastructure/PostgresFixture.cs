@@ -93,7 +93,7 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         private static string RolesScriptPath()
         {
             DirectoryInfo? directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "UrlShortener.sln")))
+            while (directory != null && !File.Exists(Path.Join(directory.FullName, "UrlShortener.sln")))
             {
                 directory = directory.Parent;
             }
@@ -103,7 +103,7 @@ namespace UrlShortener.IntegrationTests.Infrastructure
                 throw new InvalidOperationException("Repository root (UrlShortener.sln) not found.");
             }
 
-            return Path.Combine(directory.FullName, "docker", "postgres", "init", "01-roles.sh");
+            return Path.Join(directory.FullName, "docker", "postgres", "init", "01-roles.sh");
         }
     }
 
