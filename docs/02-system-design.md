@@ -111,14 +111,15 @@ CREATE TABLE short_urls (
     owner_id    varchar(64)    NOT NULL,
     is_custom   boolean        NOT NULL,
     created_at  timestamptz    NOT NULL,
-    expires_at  timestamptz    NULL,                -- null = never expires
     deleted_at  timestamptz    NULL                 -- soft delete; codes are never reused (A-25)
 );
-CREATE INDEX ix_short_urls_expires ON short_urls (expires_at) WHERE expires_at IS NOT NULL;  -- archiving job
+-- Expiry (FR-04) is added by the brownfield task TSK-14 as an expand-only migration (TSK-06 refinement R1):
+--   expires_at timestamptz NULL, plus ix_short_urls_expires, and expires_at added to the view.
 
 -- The read contract for the Redirect service (ADR-0009). Redirect's database user may SELECT from this view only.
+-- The view runs with its OWNER's rights. Never set security_invoker = true (TSK-06 §9).
 CREATE VIEW redirect_lookup AS
-    SELECT code, long_url, expires_at, deleted_at FROM short_urls;
+    SELECT code, long_url, deleted_at FROM short_urls;
 
 -- Region blocks owned by THIS deployment region (ADR-0005). v1: one row, B-001, region 0, [0, 440,201,825,776).
 CREATE TABLE id_blocks (
@@ -166,7 +167,7 @@ The rollup tables are partitioned **by month** on `bucket_hour`, which keeps the
 ### 4.3 Where each query goes
 | Statement | Target |
 |---|---|
-| Redirect lookup | `redirect_lookup` view on the **read replicas** (Npgsql multi-host, `Load Balance Hosts=true`). On a miss, one retry on the primary, capped by a token bucket. |
+| Redirect lookup | `redirect_lookup` view on the **read replicas** (Npgsql multi-host, `Load Balance Hosts=true`). On a miss, one retry on the primary, capped by a token bucket. **Plain Npgsql** (`NpgsqlRedirectLookup`): a single `SELECT`, with no EF change tracking on the hot path (TSK-06 R5). |
 | Create (link, alias, idempotency key) | Primary, one transaction |
 | Delete | Primary |
 | Metadata `GET` | Primary (owner reads should reflect their own writes) |
@@ -225,18 +226,28 @@ classDiagram
         +LongUrl Target
         +string OwnerId
         +bool IsCustom
-        +DateTime CreatedAt
-        +DateTime? ExpiresAt
-        +DateTime? DeletedAt
-        +LinkState GetState(DateTime now)
-        +void MarkDeleted(DateTime now)
+        +DateTimeOffset CreatedAt
+        +DateTimeOffset? DeletedAt
+        +LinkState State
+        +void MarkDeleted(DateTimeOffset at)
+        +ShortUrl Rehydrate(...)$
     }
-    class IUrlRepository {
+    class IShortUrlRepository {
         <<interface>>
-        +Task~ShortUrl~ FindForRedirectAsync(ShortCode code, CancellationToken ct)
-        +Task~ShortUrl~ FindOnPrimaryAsync(ShortCode code, CancellationToken ct)
         +Task~bool~ TryInsertAsync(ShortUrl url, CancellationToken ct)
-        +Task MarkDeletedAsync(ShortCode code, DateTime at, CancellationToken ct)
+        +Task~ShortUrl~ FindByCodeAsync(ShortCode code, CancellationToken ct)
+        +Task SaveDeletionAsync(ShortUrl url, CancellationToken ct)
+    }
+    class IRedirectLookup {
+        <<interface>>
+        +Task~RedirectTarget~ FindAsync(ShortCode code, CancellationToken ct)
+        +Task~RedirectTarget~ FindOnPrimaryAsync(ShortCode code, CancellationToken ct)
+    }
+    class RedirectTarget {
+        <<record>>
+        +ShortCode Code
+        +LongUrl Target
+        +LinkState State
     }
     class IShortCodeGenerator {
         <<interface>>
@@ -270,27 +281,38 @@ classDiagram
     class ShortCodeGenerator
     class FeistelPermutation
     class Base62Encoder
-    class PostgresUrlRepository
+    class EfShortUrlRepository
+    class NpgsqlRedirectLookup
     class KafkaClickEventPublisher
-    class CachedUrlRepository
+    class CachedRedirectLookup
 
     CreateShortUrlHandler --> IUnitOfWork
-    CreateShortUrlHandler --> IUrlRepository
+    CreateShortUrlHandler --> IShortUrlRepository
     CreateShortUrlHandler --> IShortCodeGenerator
     CreateShortUrlHandler --> IIdempotencyStore
     CreateShortUrlHandler --> IUrlValidationRule
-    ResolveShortUrlHandler --> IUrlRepository
+    ResolveShortUrlHandler --> IRedirectLookup
     ResolveShortUrlHandler --> IClickEventPublisher
-    DeleteShortUrlHandler --> IUrlRepository
+    DeleteShortUrlHandler --> IShortUrlRepository
+    IRedirectLookup --> RedirectTarget
     ShortCodeGenerator ..|> IShortCodeGenerator
     ShortCodeGenerator --> IIdRangeLeaser
     ShortCodeGenerator --> FeistelPermutation
     ShortCodeGenerator --> Base62Encoder
-    PostgresUrlRepository ..|> IUrlRepository
+    EfShortUrlRepository ..|> IShortUrlRepository
+    NpgsqlRedirectLookup ..|> IRedirectLookup
     KafkaClickEventPublisher ..|> IClickEventPublisher
-    CachedUrlRepository ..|> IUrlRepository
-    CachedUrlRepository --> IUrlRepository : decorates (only if ADR-0006 triggers)
+    CachedRedirectLookup ..|> IRedirectLookup
+    CachedRedirectLookup --> IRedirectLookup : decorates (only if ADR-0006 triggers)
 ```
+
+**TSK-06 refinement R2 (interface segregation):** the original single `IUrlRepository` is split.
+- **`IShortUrlRepository`** is the Api's write side and owner reads, on the primary.
+- **`IRedirectLookup`** is Redirect's read side, on the view and replicas. It returns a small `RedirectTarget`,
+  because the view deliberately leaves out owner data, so a full `ShortUrl` can't be built from it.
+
+A future cache (ADR-0006) decorates `IRedirectLookup` (`CachedRedirectLookup`, rather than the `CachedUrlRepository` named in ADR-0006).
+`ShortUrl.State` is a property until expiry (TSK-14) makes it `GetState(now)`.
 
 `IClickEventPublisher.TryPublish` is **synchronous and never blocks**. It calls the Kafka client's
 `Produce`, which queues locally and returns immediately. If the queue is full, it returns `false` and the
@@ -358,14 +380,14 @@ Expired keys are deleted by the cleanup task in §6.6. Because of the 24 h check
 
 ### 6.2 Resolve (redirect)
 1. Check the code's shape (7 Base62 characters, or a valid alias shape). Malformed → `404` without touching the database.
-2. `FindForRedirectAsync` on a replica. If not found and the token bucket allows it, `FindOnPrimaryAsync` (read-your-writes).
+2. `IRedirectLookup.FindAsync` on a replica. If not found and the token bucket allows it, `FindOnPrimaryAsync` (read-your-writes).
 3. `GetState(now)`:
    - `NotFound` → `404` (`Cache-Control: no-store`)
    - `Deleted` or `Expired` → `410` (`Cache-Control: public, max-age=86400`)
    - `Active` → `302` (`Cache-Control: no-store`). `TryPublish(ClickEvent)` is called only for `GET` requests from non-bot clients. `HEAD` requests and link-preview bots get the same response but no click event (ADR-0007).
 
 ### 6.3 Delete
-Check ownership on the primary (return `404` if it isn't the owner's link) → `MarkDeletedAsync` → `204`.
+Check ownership on the primary (`IShortUrlRepository.FindByCodeAsync`; return `404` if it isn't the owner's link) → `ShortUrl.MarkDeleted` → `SaveDeletionAsync` → `204`.
 Calling it again on an already-deleted link returns `204`. If a cache exists, purge the entry before returning.
 
 ### 6.4 Short-code generation

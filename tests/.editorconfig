@@ -2,3 +2,6 @@
 [*.cs]
 # CA1707: test names use underscores (Method_condition_expectedResult), so the behaviour reads at a glance.
 dotnet_diagnostic.CA1707.severity = none
+# CA2100: integration tests deliberately execute literal SQL (schema inspection, privilege denials).
+# No user input reaches these strings. Production code keeps the rule.
+dotnet_diagnostic.CA2100.severity = none

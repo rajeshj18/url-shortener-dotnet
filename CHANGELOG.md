@@ -13,6 +13,14 @@ Each entry names the task (`TSK-xx`) that made the change.
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
 ### Added
+- Persistence for the `links` database (TSK-06).
+  - EF Core migration `InitialLinksSchema`: `short_urls`, `id_blocks` (one active block per region), `idempotency_keys`.
+  - The `redirect_lookup` view, and least-privilege grants.
+  - Write repository on the primary; plain-Npgsql redirect lookup on the replicas.
+  - Database readiness checks.
+  - `migrate` job (an EF bundle for x64 and arm64) that the services wait for.
+  - A local roles init script.
+  - 34 Testcontainers integration tests, including denial tests for the Redirect and Api roles.
 - Domain model (TSK-05): `ShortUrl`, `ShortCode`, `CustomAlias`, `LongUrl`, `LinkState`, and `DomainValidationException` with stable error codes. Alias, URL and owner rules; idempotent soft delete. 74 unit tests; Domain line coverage 100%.
 - CI quality gates (TSK-04):
   - `ci.yml`, with the jobs `build-test`, `codeql`, `secrets` and `dependencies`;
