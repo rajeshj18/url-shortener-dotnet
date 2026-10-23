@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using UrlShortener.Infrastructure.Observability;
+using UrlShortener.Infrastructure.Persistence;
 using UrlShortener.Infrastructure.Web;
 
 namespace UrlShortener.Api
@@ -24,6 +25,7 @@ namespace UrlShortener.Api
             builder.Services.AddControllers();
             builder.Services.AddUrlShortenerWebDefaults();
             builder.Services.AddUrlShortenerHealthChecks();
+            builder.Services.AddLinksWriteStore(builder.Configuration);
             builder.Services.AddUrlShortenerObservability(builder.Configuration, ServiceName);
 
             WebApplication app = builder.Build();
