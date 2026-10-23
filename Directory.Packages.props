@@ -12,7 +12,7 @@
   <ItemGroup Label="Tests">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <!-- 7.x is the last Apache-2.0 release; 8.x is under a commercial licence. -->
     <PackageVersion Include="FluentAssertions" Version="7.2.2" />
