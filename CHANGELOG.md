@@ -7,11 +7,13 @@ Each entry names the task (`TSK-xx`) that made the change.
 ## [Unreleased]
 
 ### Changed
+- CI gate: count Cobertura lines once per class (lines are listed under both `<method>` and `<class>`). Coverage counts were doubled; the percentages were unaffected (TSK-05).
 - Dependabot ignores FluentAssertions ≥ 8 (commercial licence); 7.x stays (TSK-04 follow-up).
 - CI: gitleaks scans only the history being merged; runners pinned to `ubuntu-24.04`; the gate emits annotations (TSK-04).
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
 ### Added
+- Domain model (TSK-05): `ShortUrl`, `ShortCode`, `CustomAlias`, `LongUrl`, `LinkState`, and `DomainValidationException` with stable error codes. Alias, URL and owner rules; idempotent soft delete. 74 unit tests; Domain line coverage 100%.
 - CI quality gates (TSK-04):
   - `ci.yml`, with the jobs `build-test`, `codeql`, `secrets` and `dependencies`;
   - a test-metrics gate: failed = 0, skipped = 0, coverage ≥ 80% on Domain/Application;
