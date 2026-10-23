@@ -77,7 +77,7 @@ Every stage only **adds** to the previous one. Nothing is redone, because the in
 | TSK-14 | **Enhancement: link expiry** (FR-04): `expiresAt` on create, 410 after expiry, expand-only migration | 13 | High | 1 h | Unit: expiry rules · API: expired → 410 | FR-04 met; impact analysis written |
 | TSK-15 | **Bug fix:** a real defect found in the merged scenario-1 code, chosen when the task starts. A failing test is committed first, then the fix. *(Originally the alias race, 500 instead of 409; TSK-06's `TryInsertAsync` already returns `false` on a duplicate and TSK-08 inserts without a prior read, so that race can't occur. Decided at TSK-08 spec approval, D2.)* | 13 | High | 1.5 h | A test that reproduces the defect | The failing test is visible in the PR before the fix |
 | TSK-16 | **Refactor:** URL validation into separate `IUrlValidationRule` classes, with characterization tests first | 13 | Low | 1 h | Same tests pass before and after | Behavior unchanged |
-| TSK-17 | **Test and documentation improvement:** fill coverage gaps; complete the OpenAPI descriptions | 14–16 | Low | 1 h | Coverage report | Gaps closed; docs complete |
+| TSK-17 | **Test and documentation improvement:** fill coverage gaps; complete the OpenAPI descriptions; JSON console logging, which ADR-0013 promises but the code lacks (added by the engineer on 2026-10-23) | 14–16 | Low | 1 h | Coverage report | Gaps closed; docs complete |
 | TSK-18 | Scenario 2 write-up, with an impact analysis per change | 14–17 | Low | 1 h | — | Evidence links |
 
 #### Scenario 3: Ambiguous
@@ -201,3 +201,4 @@ says so openly: the in-depth design phase was a deliberate choice, recorded in t
 - 2026-10-22 · Changed at TSK-03 spec approval · The `migrate` step moves from TSK-03 to **TSK-06**: there are no migrations until the schema exists. Approved by the engineer.
 - 2026-10-22 · **Re-estimate point 1 accepted** · Stage 1 ~16 h, all stages ~21.5 h; stages 2 and 3 planned (§5.1).
 - 2026-10-23 · Changed at TSK-08 spec approval (D2) · The planned v1 alias race can't occur: TSK-06's `TryInsertAsync` returns `false` on a duplicate, and TSK-08 inserts without a prior read. TSK-15 will fix a **real** defect from the merged code instead of a planted one. Approved by the engineer.
+- 2026-10-23 · Changed by the engineer · TSK-17 also configures JSON console logging (ADR-0013 says "plus JSON console output"; the services use the plain-text formatter). Found while answering a question about logging.
