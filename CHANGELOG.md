@@ -16,6 +16,7 @@ Each entry names the task (`TSK-xx`) that made the change.
 - `.editorconfig` naming: constants and static readonly fields are PascalCase; only private instance fields use `_camelCase`. The previous rule contradicted the code and was only caught by `dotnet format` (TSK-04).
 
 ### Added
+- Scenario 1 (greenfield) write-up: ask → normalization → decomposition → AI-assisted execution → validation → outcome, with estimates vs actual hours ([docs/scenarios/01-greenfield.md](docs/scenarios/01-greenfield.md)); requirements matrix updated (TSK-13).
 - **v1 load test and CI performance gate** (TSK-12, ADR-0006).
   - k6 scripts (`tests/load/`): redirect, hot key, scan, create, and a 30 s CI smoke; each warms up for 15 s and measures against the SLO thresholds.
   - `scripts/load-test.sh` / `.ps1` run them in `grafana/k6:2.3.0` on the compose network.

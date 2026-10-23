@@ -9,7 +9,7 @@ Each scenario document follows the same structure: **ask → normalization → d
 
 | Scenario | Content |
 |---|---|
-| **1. Greenfield** | Shorten, redirect, custom alias, expiry and delete, persistence. No cache (ADR-0006). |
+| **1. Greenfield** ([write-up](01-greenfield.md)) | Shorten, redirect, custom alias, metadata and delete, idempotent retries, persistence, resilience, load test. No cache (ADR-0006, measured). Expiry moved to scenario 2 (TSK-14), as in the task breakdown. |
 | **2. Brownfield** | (a) **Enhancement:** click analytics added to the redirect path (Kafka → worker → rollups, ADR-0008). (b) **Enhancement:** a cache added as a decorator, if the load test justifies it (ADR-0006). (c) **Bug fix:** a real defect found in the merged scenario-1 code, reproduced by a failing test committed before the fix (TSK-15). *(The originally planned alias race can't occur, because the alias insert relies on the primary key and has no prior read; TSK-08 D2.)* (d) **Refactor:** URL validation pulled out into a set of separate rules, ahead of scenario 3. (e) **Test and documentation improvement:** mutation testing (Stryker.NET), filling coverage gaps, completing the OpenAPI docs. |
 | **3. Ambiguous** | *"Make it secure so people can't abuse it"* → clarifying questions → assumptions → measurable requirements: rate limits derived from the capacity estimates, URL threat checking behind an interface, blocking redirect loops, codes that can't be enumerated in order, and limits on random guessing (a guess hits a real link ~1% of the time after 1 year and ~5% after 5 years). |
 
