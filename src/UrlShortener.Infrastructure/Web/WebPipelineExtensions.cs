@@ -32,7 +32,11 @@ namespace UrlShortener.Infrastructure.Web
                 throw new ArgumentOutOfRangeException(nameof(requestTimeout), "The request timeout must be positive.");
             }
 
-            services.AddProblemDetails();
+            // One traceId format everywhere (TSK-15): problems the framework generates (401 challenges,
+            // status-code pages, ProblemDetailsFactory) get the same 32-hex trace ID as our handlers and the logs,
+            // instead of the full traceparent the framework uses by default.
+            services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
+                context.ProblemDetails.Extensions["traceId"] = ProblemResponses.TraceId(context.HttpContext));
 
             // Handlers run in registration order: specific mappings first, the catch-all 500 last.
             services.AddExceptionHandler<DomainValidationExceptionHandler>();
