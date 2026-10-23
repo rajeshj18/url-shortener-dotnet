@@ -15,7 +15,7 @@ namespace UrlShortener.IntegrationTests.Infrastructure
     /// <c>docker/postgres/init/01-roles.sh</c> as docker-compose (so the script is tested too), then applies the
     /// EF migrations as the <b>migrator</b> role, the way the migrate job does. Services never migrate themselves.
     /// </summary>
-    public sealed class PostgresFixture : IAsyncLifetime
+    public sealed class PostgresFixture : IAsyncLifetime, IDisposable
     {
         /// <summary>Database name used by the tests.</summary>
         public const string Database = "links";
@@ -30,6 +30,7 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         };
 
         private readonly PostgreSqlContainer _container;
+        private ApiFactory? _sharedApi;
 
         /// <summary>Creates the fixture; the container starts in <see cref="InitializeAsync"/>.</summary>
         public PostgresFixture()
@@ -57,17 +58,31 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         /// <summary>Connection string for the bootstrap superuser. Used only for schema inspection in tests.</summary>
         public string BootstrapConnection => _container.GetConnectionString();
 
+        /// <summary>
+        /// One in-memory Api on the shared database, reused by the API tests. Each host owns a data source, and EF Core
+        /// builds an internal service provider per data source: more than 20 hosts in one test process trip EF's
+        /// <c>ManyServiceProvidersCreatedWarning</c> (production runs one host per process).
+        /// </summary>
+        public ApiFactory SharedApi => _sharedApi ?? throw new InvalidOperationException("The fixture is not initialized.");
+
         /// <inheritdoc />
         public async Task InitializeAsync()
         {
             await _container.StartAsync();
             await MigrateAsync(MigratorConnection);
+            _sharedApi = new ApiFactory(ApiConnection);
         }
 
         /// <inheritdoc />
         public async Task DisposeAsync()
         {
             await _container.DisposeAsync();
+        }
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            _sharedApi?.Dispose();
         }
 
         /// <summary>

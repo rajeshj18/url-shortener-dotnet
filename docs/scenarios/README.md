@@ -10,10 +10,10 @@ Each scenario document follows the same structure: **ask → normalization → d
 | Scenario | Content |
 |---|---|
 | **1. Greenfield** | Shorten, redirect, custom alias, expiry and delete, persistence. No cache (ADR-0006). |
-| **2. Brownfield** | (a) **Enhancement:** click analytics added to the redirect path (Kafka → worker → rollups, ADR-0008). (b) **Enhancement:** a cache added as a decorator, if the load test justifies it (ADR-0006). (c) **Bug fix:** the custom-alias race in v1's read-then-insert. Two concurrent requests for the same alias both pass the check, and the second hits a primary-key violation, returning **500 instead of 409**. A concurrency test finds it; the fix is `INSERT … ON CONFLICT DO NOTHING` mapped to 409. (d) **Refactor:** URL validation pulled out into a set of separate rules, ahead of scenario 3. (e) **Test and documentation improvement:** mutation testing (Stryker.NET), filling coverage gaps, completing the OpenAPI docs. |
+| **2. Brownfield** | (a) **Enhancement:** click analytics added to the redirect path (Kafka → worker → rollups, ADR-0008). (b) **Enhancement:** a cache added as a decorator, if the load test justifies it (ADR-0006). (c) **Bug fix:** a real defect found in the merged scenario-1 code, reproduced by a failing test committed before the fix (TSK-15). *(The originally planned alias race can't occur, because the alias insert relies on the primary key and has no prior read; TSK-08 D2.)* (d) **Refactor:** URL validation pulled out into a set of separate rules, ahead of scenario 3. (e) **Test and documentation improvement:** mutation testing (Stryker.NET), filling coverage gaps, completing the OpenAPI docs. |
 | **3. Ambiguous** | *"Make it secure so people can't abuse it"* → clarifying questions → assumptions → measurable requirements: rate limits derived from the capacity estimates, URL threat checking behind an interface, blocking redirect loops, codes that can't be enumerated in order, and limits on random guessing (a guess hits a real link ~1% of the time after 1 year and ~5% after 5 years). |
 
-**Note on (c):** v1 uses a simple read-then-insert as a genuine first iteration. The scenario document
-says so openly. It is not presented as a bug found in production.
+**Note on (c):** the defect is chosen when TSK-15 starts, from what the merged code actually contains. No
+bug is planted for the exercise.
 
 Scenario 1 is merged before scenario 2 starts, so the git history shows the brownfield work happening on existing code.

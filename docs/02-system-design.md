@@ -101,6 +101,24 @@ and committed.
 
 **Reserved paths:** `api`, `health`, `swagger`, `favicon.ico`, `robots.txt`. These can't be used as aliases.
 
+**Authentication (TSK-08, D1).** `X-Api-Key` is hashed with SHA-256 and compared in constant time with the
+configured clients (`ApiKeys:Clients:n:OwnerId` / `KeyHash`); a match sets `ownerId`. Only hashes are configured,
+never keys. Missing or unknown key → `401` problem.
+
+**Error responses.** Every `4xx`/`5xx` is `application/problem+json` with `traceId`. Expected errors also carry
+`errors: [{ "code", "message" }]` with a **stable code** (never renamed):
+
+| Status | Codes |
+|---|---|
+| `400` | `url.required`, `url.length`, `url.characters`, `url.scheme`, `url.format`, `url.credentials`, `url.self-link`, `alias.required`, `alias.length`, `alias.characters`, `alias.generated-shape`, `alias.reserved`, `idempotency-key.format`, `expiry.unsupported` (until TSK-14) |
+| `409` | `alias.taken` |
+| `422` | `idempotency-key.reused` |
+| `503` | ID space exhausted (`Retry-After: 5`) |
+
+`Location` on `201` is `/api/v1/urls/{code}` (the metadata endpoint, TSK-10). The OpenAPI document is
+committed as [`docs/api/openapi-v1.json`](api/openapi-v1.json); a test fails if the code drifts from it. The
+Swagger UI is served at `/swagger` only when `OpenApi:EnableUi` is true (compose sets it).
+
 ## 4. Data model (PostgreSQL)
 
 ### 4.1 `links` database (system of record)
@@ -264,7 +282,7 @@ classDiagram
     }
     class IUnitOfWork {
         <<interface>>
-        +Task ExecuteInTransactionAsync(Func~Task~ work, CancellationToken ct)
+        +Task~IUnitOfWorkTransaction~ BeginAsync(CancellationToken ct)
     }
     class IClickEventPublisher {
         <<interface>>
@@ -335,8 +353,8 @@ event is counted as dropped.
    - existing key with a different hash → roll back and return `422`.
 
    **Only successful creates are stored.** A `409` or `503` rolls the transaction back, so the key row disappears and a retry runs again from the start. A concurrent duplicate request waits on the primary key until the first transaction commits or rolls back.
-5. **Alias:** `TryInsertAsync`. If `false`, return `409`.
-   **Generated:** `NextAsync`, then `TryInsertAsync`. A conflict here can't happen in normal operation: generated codes are unique, and aliases never have the generated shape (§7). If it does happen, treat it as a defect: log an error, raise an alert, and retry with the next ID.
+5. **Alias:** `TryInsertAsync`, **with no read first**. If `false`, return `409`. The primary key is the guard, so concurrent requests for one alias give one `201` and `409`s, never a `500` (TSK-08 D2).
+   **Generated:** `NextAsync`, then `TryInsertAsync`. A conflict here can't happen in normal operation: generated codes are unique, and aliases never have the generated shape (§7). If it does happen, treat it as a defect: log an error, raise an alert, and retry with the next ID. The insert runs under a **savepoint**, because PostgreSQL aborts the whole transaction after a failed statement; the handler rolls back to it before retrying (at most 3 attempts).
 6. Save the response with `CompleteAsync`, **commit**, return `201`.
 7. If the primary is unavailable (during failover), return `503` with `Retry-After: 5`.
 
@@ -583,7 +601,9 @@ Implemented as separate `IUrlValidationRule` classes so the ambiguous scenario c
 
 | Key | Example | Notes |
 |---|---|---|
-| `PublicBaseUrl` | `http://localhost:8080` | Used to build `shortUrl` |
+| `PublicBaseUrl` | `https://sho.rt` (locally `http://localhost:5081`, the Redirect service) | Used to build `shortUrl` and for the self-link check. Required. |
+| `ApiKeys:Clients:n:OwnerId` / `KeyHash` | `local-dev` / SHA-256 hex of the key | API clients (TSK-08 D1). Only hashes, from the secret store; at least one client is required. Locally: `DEV_CALLER_HASH` in `.env`. |
+| `OpenApi:EnableUi` | `true` in compose, `false` by default | Serves `/swagger` and the OpenAPI document |
 | `ConnectionStrings:LinksPrimary` | `Host=links-rw.internal;Database=links;Username=api;Target Session Attributes=read-write;Max Pool Size=50` | Writer endpoint (§6.7). Locally: `Host=postgres`. |
 | `ConnectionStrings:LinksReplicas` | `Host=links-ro.internal;Database=links;Username=redirect;Target Session Attributes=prefer-standby;Load Balance Hosts=true` | Reader endpoint. Locally: `Host=postgres`. |
 | `ConnectionStrings:Analytics` | `Host=analytics-rw.internal;Database=analytics;Username=worker;Target Session Attributes=read-write` | A separate instance in production |
