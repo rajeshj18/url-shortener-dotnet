@@ -18,6 +18,9 @@ namespace UrlShortener.Application.ShortUrls
         /// <summary>The idempotency key was already used for a different request (<c>422</c>).</summary>
         public const string IdempotencyKeyReused = "idempotency-key.reused";
 
+        /// <summary>No such link, or not the caller's (<c>404</c>; the same answer in both cases, TSK-10).</summary>
+        public const string LinkNotFound = "link.not-found";
+
         /// <summary>The custom alias is already taken (<c>409</c>).</summary>
         public const string AliasTaken = "alias.taken";
     }

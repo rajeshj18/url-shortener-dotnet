@@ -17,7 +17,7 @@ namespace UrlShortener.Infrastructure.ShortUrls
         /// <summary>Configuration key of the public short-link base URL (LLD §8).</summary>
         public const string PublicBaseUrlKey = "PublicBaseUrl";
 
-        /// <summary>Registers the create use case, the unit of work and the idempotency store.</summary>
+        /// <summary>Registers the create, metadata and delete use cases, the unit of work and the idempotency store.</summary>
         /// <param name="services">The service collection of the composition root.</param>
         /// <param name="configuration">Configuration that holds <c>PublicBaseUrl</c>.</param>
         /// <returns>The same service collection, for chaining.</returns>
@@ -41,6 +41,10 @@ namespace UrlShortener.Infrastructure.ShortUrls
                 publicBaseUrl,
                 provider.GetRequiredService<TimeProvider>(),
                 provider.GetRequiredService<ILogger<CreateShortUrlHandler>>()));
+            services.AddScoped<IGetShortUrlHandler>(provider =>
+                new GetShortUrlHandler(provider.GetRequiredService<IShortUrlRepository>(), publicBaseUrl));
+            services.AddScoped<IDeleteShortUrlHandler>(provider =>
+                new DeleteShortUrlHandler(provider.GetRequiredService<IShortUrlRepository>(), provider.GetRequiredService<TimeProvider>()));
             return services;
         }
 
