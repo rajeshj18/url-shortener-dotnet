@@ -11,6 +11,9 @@ namespace UrlShortener.IntegrationTests.Infrastructure
     /// </summary>
     public sealed class ApiFactory : WebApplicationFactory<UrlShortener.Api.Program>
     {
+        /// <summary>A test-only Feistel passphrase (TSK-07). Real keys come from the secret store.</summary>
+        public const string TestFeistelPassphrase = "integration-test-feistel-passphrase-0123";
+
         private readonly string _primary;
 
         public ApiFactory(string primary)
@@ -21,7 +24,9 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             ArgumentNullException.ThrowIfNull(builder);
-            builder.UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.PrimaryConnectionName, _primary);
+            builder
+                .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.PrimaryConnectionName, _primary)
+                .UseSetting("ShortCode:FeistelKey", TestFeistelPassphrase);
         }
     }
 
