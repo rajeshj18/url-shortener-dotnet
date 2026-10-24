@@ -6,13 +6,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using UrlShortener.Api.Contracts;
-using UrlShortener.Application.ShortUrls;
+using UrlShortener.Core.Analytics;
+using UrlShortener.Core.Links;
 
 namespace UrlShortener.Api.Controllers
 {
     /// <summary>
-    /// The management API for short links (LLD §3). Only maps HTTP to the Application use cases: authentication
-    /// and error mapping happen in the middleware pipeline.
+    /// The management API for short links (LLD §3). Only maps HTTP to the Core services: authentication and error mapping
+    /// happen in the middleware pipeline.
     /// </summary>
     [ApiController]
     [Authorize]
@@ -24,19 +25,16 @@ namespace UrlShortener.Api.Controllers
 
         private const string ProblemJson = "application/problem+json";
 
-        private readonly ICreateShortUrlHandler _create;
-        private readonly IGetShortUrlHandler _get;
-        private readonly IDeleteShortUrlHandler _delete;
+        private readonly LinkService _links;
+        private readonly StatsService _stats;
 
         /// <summary>Creates the controller.</summary>
-        /// <param name="create">The create use case.</param>
-        /// <param name="get">The metadata use case.</param>
-        /// <param name="delete">The delete use case.</param>
-        public ShortUrlsController(ICreateShortUrlHandler create, IGetShortUrlHandler get, IDeleteShortUrlHandler delete)
+        /// <param name="links">Create, metadata and delete.</param>
+        /// <param name="stats">Click statistics.</param>
+        public ShortUrlsController(LinkService links, StatsService stats)
         {
-            _create = create ?? throw new ArgumentNullException(nameof(create));
-            _get = get ?? throw new ArgumentNullException(nameof(get));
-            _delete = delete ?? throw new ArgumentNullException(nameof(delete));
+            _links = links ?? throw new ArgumentNullException(nameof(links));
+            _stats = stats ?? throw new ArgumentNullException(nameof(stats));
         }
 
         /// <summary>Creates a short link with a generated code or a custom alias.</summary>
@@ -63,27 +61,25 @@ namespace UrlShortener.Api.Controllers
             CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(request);
-            if (idempotencyKey != null && !IdempotencyKeyFormat.IsValid(idempotencyKey))
+            if (idempotencyKey != null && !IdempotencyRules.IsValidKey(idempotencyKey))
             {
-                return Problem(StatusCodes.Status400BadRequest, "Idempotency-Key must be 1-128 printable ASCII characters.", ApplicationErrorCodes.IdempotencyKeyFormat);
+                return Problem(StatusCodes.Status400BadRequest, "Idempotency-Key must be 1-128 printable ASCII characters.", ErrorCodes.IdempotencyKeyFormat);
             }
 
-            string ownerId = OwnerId();
-            CreateShortUrlResult result = await _create.HandleAsync(
-                new CreateShortUrlCommand(ownerId, request.Destination, request.CustomAlias, request.ExpiresAt, idempotencyKey),
+            CreateResult result = await _links.CreateAsync(
+                new CreateLinkCommand(OwnerId(), request.Destination, request.CustomAlias, request.ExpiresAt, idempotencyKey),
                 cancellationToken);
-
             switch (result.Outcome)
             {
-                case CreateShortUrlOutcome.Created:
+                case CreateOutcome.Created:
                     return CreatedAt(result.Body!);
-                case CreateShortUrlOutcome.Replayed:
+                case CreateOutcome.Replayed:
                     Response.Headers[ReplayedHeader] = "true";
                     return CreatedAt(result.Body!);
-                case CreateShortUrlOutcome.AliasTaken:
-                    return Problem(StatusCodes.Status409Conflict, "The custom alias is already taken.", ApplicationErrorCodes.AliasTaken);
+                case CreateOutcome.AliasTaken:
+                    return Problem(StatusCodes.Status409Conflict, "The custom alias is already taken.", ErrorCodes.AliasTaken);
                 default:
-                    return Problem(StatusCodes.Status422UnprocessableEntity, "This Idempotency-Key was already used for a different request.", ApplicationErrorCodes.IdempotencyKeyReused);
+                    return Problem(StatusCodes.Status422UnprocessableEntity, "This Idempotency-Key was already used for a different request.", ErrorCodes.IdempotencyKeyReused);
             }
         }
 
@@ -98,7 +94,7 @@ namespace UrlShortener.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, ProblemJson)]
         public async Task<IActionResult> Get(string code, CancellationToken cancellationToken)
         {
-            ShortUrlDetails? details = await _get.GetAsync(OwnerId(), code, cancellationToken);
+            ShortUrlDetails? details = await _links.GetAsync(OwnerId(), code, cancellationToken);
             return details != null ? Ok(details) : LinkNotFound();
         }
 
@@ -113,18 +109,40 @@ namespace UrlShortener.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, ProblemJson)]
         public async Task<IActionResult> Delete(string code, CancellationToken cancellationToken)
         {
-            return await _delete.DeleteAsync(OwnerId(), code, cancellationToken) ? NoContent() : LinkNotFound();
+            return await _links.DeleteAsync(OwnerId(), code, cancellationToken) ? NoContent() : LinkNotFound();
+        }
+
+        /// <summary>Returns the click statistics of the caller's link: totals, a time series, top referrers and devices.</summary>
+        /// <remarks>
+        /// Counts exclude bots and <c>HEAD</c> requests and are kept per hour by the analytics worker, usually less than a
+        /// minute behind (<c>dataFreshAsOf</c>). <c>totalClicks</c> covers the requested range; buckets without clicks are
+        /// left out of <c>series</c>. Returns <c>404</c> both for unknown codes and for other clients' links.
+        /// </remarks>
+        /// <param name="code">The short code or alias.</param>
+        /// <param name="from">Range start (default: 7 days before <paramref name="to"/>).</param>
+        /// <param name="to">Range end, exclusive (default: now). The range may be at most 90 days.</param>
+        /// <param name="granularity"><c>hour</c> or <c>day</c> (default <c>day</c>).</param>
+        /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
+        /// <returns>The statistics.</returns>
+        [HttpGet("{code}/stats")]
+        [ProducesResponseType(typeof(LinkStats), StatusCodes.Status200OK, "application/json")]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest, ProblemJson)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized, ProblemJson)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, ProblemJson)]
+        public async Task<IActionResult> Stats(string code, [FromQuery] DateTimeOffset? from, [FromQuery] DateTimeOffset? to, [FromQuery] string? granularity, CancellationToken cancellationToken)
+        {
+            LinkStats? stats = await _stats.GetAsync(OwnerId(), code, from, to, granularity, cancellationToken);
+            return stats != null ? Ok(stats) : LinkNotFound();
         }
 
         private string OwnerId()
         {
-            return User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? throw new InvalidOperationException("An authenticated request has no owner.");
+            return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("An authenticated request has no owner.");
         }
 
         private ObjectResult LinkNotFound()
         {
-            return Problem(StatusCodes.Status404NotFound, "No such link.", ApplicationErrorCodes.LinkNotFound);
+            return Problem(StatusCodes.Status404NotFound, "No such link.", ErrorCodes.LinkNotFound);
         }
 
         // Location points at the metadata endpoint. Codes contain only URL-safe characters.

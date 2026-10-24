@@ -16,7 +16,7 @@ RUN case "$TARGETARCH" in \
       *) echo "Unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
     esac && \
     dotnet ef migrations bundle \
-      --project src/UrlShortener.Infrastructure --startup-project src/UrlShortener.Infrastructure \
+      --project src/UrlShortener.Core --startup-project src/UrlShortener.Core \
       --context LinksDbContext --self-contained -r "$rid" -o /out/efbundle-links
 
 FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-alpine AS runtime

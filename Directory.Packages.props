@@ -16,9 +16,8 @@
     <PackageVersion Include="Npgsql" Version="8.0.9" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
   </ItemGroup>
-  <ItemGroup Label="Application">
-    <!-- Logging abstractions only (ILogger), matching the .NET 8 framework; Application never references a host. -->
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
+  <ItemGroup Label="Analytics (ADR-0008, TSK-SIMPLE)">
+    <PackageVersion Include="Confluent.Kafka" Version="2.16.0" />
   </ItemGroup>
   <ItemGroup Label="Resilience (LLD §6.7, TSK-11)">
     <!-- Polly v8 engine only. Microsoft.Extensions.Resilience is 10.x-only now and would pull .NET 10 assemblies. -->
@@ -37,6 +36,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.32" />
     <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
+    <PackageVersion Include="Testcontainers.Redpanda" Version="4.16.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
 </Project>

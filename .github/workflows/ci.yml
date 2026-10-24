@@ -77,14 +77,14 @@ jobs:
         run: |
           if [ -f coverage-report/SummaryGithub.md ]; then cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"; fi
 
-      - name: "Gate: failed = 0, skipped = 0, coverage >= 80% (Domain, Application)"
+      - name: "Gate: failed = 0, skipped = 0, coverage >= 80% (Domain, Core)"
         if: always()
         run: >
           python3 scripts/ci/check-test-results.py
           --trx-dir TestResults
           --coverage coverage-report/Cobertura.xml
           --min-line-coverage 80
-          --gated-assemblies UrlShortener.Domain UrlShortener.Application
+          --gated-assemblies UrlShortener.Domain UrlShortener.Core
 
       - name: Upload test results and coverage
         if: always() && hashFiles('TestResults/**/*.trx') != ''

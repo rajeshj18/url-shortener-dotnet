@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
-using UrlShortener.Infrastructure.Web.Authentication;
+using UrlShortener.Core.Web;
 
 namespace UrlShortener.Api
 {
@@ -35,18 +35,18 @@ namespace UrlShortener.Api
                 {
                     Title = "URL Shortener API",
                     Version = "v1",
-                    Description = "Management API: create short links. Errors are RFC 7807 problems with a traceId and stable error codes.",
+                    Description = "Management API: create, read and delete short links, and read their click statistics. Errors are RFC 7807 problems with a traceId and stable error codes.",
                 });
-                options.AddSecurityDefinition(ApiKeyAuthenticationDefaults.Scheme, new OpenApiSecurityScheme
+                options.AddSecurityDefinition(ApiKeyAuthentication.SchemeName, new OpenApiSecurityScheme
                 {
                     Type = SecuritySchemeType.ApiKey,
                     In = ParameterLocation.Header,
-                    Name = ApiKeyAuthenticationDefaults.HeaderName,
+                    Name = ApiKeyAuthentication.HeaderName,
                     Description = "The client's API key.",
                 });
                 options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
                 {
-                    [new OpenApiSecuritySchemeReference(ApiKeyAuthenticationDefaults.Scheme, document)] = new List<string>(),
+                    [new OpenApiSecuritySchemeReference(ApiKeyAuthentication.SchemeName, document)] = new List<string>(),
                 });
                 string xmlComments = Path.Join(AppContext.BaseDirectory, "UrlShortener.Api.xml");
                 if (File.Exists(xmlComments))

@@ -1,4 +1,4 @@
-# Local stack, stage 1 (HLD §4.2). Kafka and the AnalyticsWorker are added in stage 2 (TSK-23).
+# Local stack (HLD §4.2), TSK-SIMPLE: PostgreSQL, Redpanda (Kafka API), the three services and Grafana.
 # Usage:  cp .env.example .env   then   docker compose up -d --build --wait
 # All host ports are bound to 127.0.0.1, so nothing is exposed on the network.
 # Changed the roles in .env, or upgrading from before TSK-06? Run `docker compose down -v` once: the init
@@ -15,16 +15,45 @@ services:
       LINKS_MIGRATOR_PASSWORD: ${LINKS_MIGRATOR_PASSWORD:?Copy .env.example to .env first}
       LINKS_API_PASSWORD: ${LINKS_API_PASSWORD:?Copy .env.example to .env first}
       LINKS_REDIRECT_PASSWORD: ${LINKS_REDIRECT_PASSWORD:?Copy .env.example to .env first}
+      ANALYTICS_WORKER_PASSWORD: ${ANALYTICS_WORKER_PASSWORD:?Copy .env.example to .env first}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro   # creates the 3 application roles (TSK-06)
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro   # creates the 4 application roles (TSK-06, TSK-SIMPLE)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  redpanda:
+    # Kafka-compatible broker for click events (ADR-0008), one node, memory capped to keep the stack near 3 GB (NFR-13).
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.4
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=512M
+      - --overprovisioned
+      - --kafka-addr=internal://0.0.0.0:9092
+      - --advertise-kafka-addr=internal://redpanda:9092
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  redpanda-init:
+    # Creates the click topic once: 3 partitions locally (48 in production), 30 days' retention (LLD §6.5).
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.4
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["rpk topic create click-events.v1 -p 3 -r 1 -c retention.ms=2592000000 -X brokers=redpanda:9092 || rpk topic describe click-events.v1 -X brokers=redpanda:9092"]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: "no"
 
   migrate:
     # One-off EF Core migration bundle, as the migrator role (ADR-0009). It exits 0 when done.
@@ -89,10 +118,34 @@ services:
       # Redirect role: SELECT on redirect_lookup only. Locally the "replicas" are the same single PostgreSQL.
       ConnectionStrings__LinksReplicas: "Host=postgres;Database=${POSTGRES_DB};Username=urlshortener_redirect;Password=${LINKS_REDIRECT_PASSWORD}"
       ConnectionStrings__LinksPrimary: "Host=postgres;Database=${POSTGRES_DB};Username=urlshortener_redirect;Password=${LINKS_REDIRECT_PASSWORD}"
+      # Click events (ADR-0008). Publishing never blocks a redirect.
+      Kafka__BootstrapServers: redpanda:9092
     ports:
       - "127.0.0.1:5081:8080"
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      redpanda-init:
+        condition: service_completed_successfully
+      otel-lgtm:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/UrlShortener.AnalyticsWorker/Dockerfile
+    image: urlshortener-worker:local
+    environment:
+      OpenTelemetry__Endpoint: http://otel-lgtm:4317
+      # Worker role: read/write on the analytics schema only.
+      ConnectionStrings__Analytics: "Host=postgres;Database=${POSTGRES_DB};Username=urlshortener_worker;Password=${ANALYTICS_WORKER_PASSWORD}"
+      Kafka__BootstrapServers: redpanda:9092
+    ports:
+      - "127.0.0.1:5082:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redpanda-init:
         condition: service_completed_successfully
       otel-lgtm:
         condition: service_healthy

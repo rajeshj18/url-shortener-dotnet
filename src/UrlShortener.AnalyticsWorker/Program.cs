@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
-using UrlShortener.Infrastructure.Observability;
-using UrlShortener.Infrastructure.Web;
+using UrlShortener.Core;
+using UrlShortener.Core.Web;
 
 namespace UrlShortener.AnalyticsWorker
 {
-    /// <summary>Entry point and composition root of the AnalyticsWorker service.</summary>
+    /// <summary>Entry point and composition root of the AnalyticsWorker service (ADR-0008).</summary>
     public sealed class Program
     {
         /// <summary>The service name reported to OpenTelemetry.</summary>
@@ -21,13 +22,14 @@ namespace UrlShortener.AnalyticsWorker
         {
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddHostedService<PlaceholderWorker>();
-            builder.Services.AddUrlShortenerHealthChecks();
-            builder.Services.AddUrlShortenerObservability(builder.Configuration, ServiceName);
+            builder.Services.AddWorkerCore(builder.Configuration);
+            builder.Services.AddTelemetry(builder.Configuration, ServiceName);
 
             WebApplication app = builder.Build();
 
-            app.MapUrlShortenerHealthEndpoints();
+            // Health endpoints only; the work is the ClickConsumer hosted service.
+            app.MapHealthChecks(WebDefaults.LivePath, new HealthCheckOptions { Predicate = _ => false });
+            app.MapHealthChecks(WebDefaults.ReadyPath, new HealthCheckOptions { Predicate = registration => registration.Tags.Contains(WebDefaults.ReadyTag) });
 
             app.Run();
         }

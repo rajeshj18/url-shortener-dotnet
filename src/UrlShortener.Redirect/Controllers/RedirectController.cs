@@ -3,13 +3,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using UrlShortener.Application.Redirects;
+using UrlShortener.Core.Redirects;
 
 namespace UrlShortener.Redirect.Controllers
 {
     /// <summary>
-    /// <c>GET</c> and <c>HEAD /{code}</c> (LLD §3, ADR-0007). Maps the use case's outcome to a status and the
-    /// caching header ADR-0007 fixes for it. Single-segment paths only, so <c>/health/*</c> is never captured.
+    /// <c>GET</c> and <c>HEAD /{code}</c> (LLD §3, ADR-0007). Maps the outcome to a status and the caching header ADR-0007
+    /// fixes for it. Single-segment paths only, so <c>/health/*</c> is never captured.
     /// </summary>
     [ApiController]
     public sealed class RedirectController : ControllerBase
@@ -20,13 +20,13 @@ namespace UrlShortener.Redirect.Controllers
         /// <summary><c>410</c>: permanent (codes are never reused, A-25), so caches may keep it for a day.</summary>
         public const string GoneCaching = "public, max-age=86400";
 
-        private readonly IResolveShortUrlHandler _resolve;
+        private readonly RedirectService _redirects;
 
         /// <summary>Creates the controller.</summary>
-        /// <param name="resolve">The redirect use case.</param>
-        public RedirectController(IResolveShortUrlHandler resolve)
+        /// <param name="redirects">The redirect use case.</param>
+        public RedirectController(RedirectService redirects)
         {
-            _resolve = resolve ?? throw new ArgumentNullException(nameof(resolve));
+            _redirects = redirects ?? throw new ArgumentNullException(nameof(redirects));
         }
 
         /// <summary>Redirects to the long URL.</summary>
@@ -37,13 +37,8 @@ namespace UrlShortener.Redirect.Controllers
         [Route("{code}")]
         public async Task<IActionResult> Resolve(string code, CancellationToken cancellationToken)
         {
-            ResolveResult result = await _resolve.ResolveAsync(
-                new ResolveRequest(
-                    code,
-                    HttpMethods.IsHead(Request.Method),
-                    Request.Headers.UserAgent.ToString(),
-                    Request.Headers.Referer.ToString()),
-                cancellationToken);
+            ResolveResult result = await _redirects.ResolveAsync(
+                code, HttpMethods.IsHead(Request.Method), Request.Headers.UserAgent.ToString(), Request.Headers.Referer.ToString(), cancellationToken);
 
             switch (result.Outcome)
             {

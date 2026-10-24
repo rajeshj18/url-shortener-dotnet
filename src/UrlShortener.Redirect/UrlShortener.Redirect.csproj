@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-  <!-- Redirect service: GET/HEAD /{code} only (ADR-0009). References the libraries, never another service. -->
+  <!-- Redirect service: GET/HEAD /{code} only (ADR-0009). References Core and Domain, never another service. -->
   <ItemGroup>
-    <ProjectReference Include="..\UrlShortener.Application\UrlShortener.Application.csproj" />
-    <ProjectReference Include="..\UrlShortener.Infrastructure\UrlShortener.Infrastructure.csproj" />
+    <ProjectReference Include="..\UrlShortener.Core\UrlShortener.Core.csproj" />
   </ItemGroup>
 </Project>
