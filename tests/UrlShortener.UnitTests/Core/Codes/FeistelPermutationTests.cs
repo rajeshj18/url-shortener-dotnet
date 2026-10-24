@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
-using UrlShortener.Infrastructure.ShortCodes;
+using UrlShortener.Core.Codes;
 using Xunit;
 
-namespace UrlShortener.UnitTests.Infrastructure.ShortCodes
+namespace UrlShortener.UnitTests.Core.Codes
 {
     /// <summary>
     /// TSK-07 AC2/AC3: the permutation is one-to-one on <c>[0, 62⁷)</c>, so generated codes can never collide, and

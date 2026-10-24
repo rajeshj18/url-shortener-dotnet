@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Testcontainers.PostgreSql;
-using UrlShortener.Infrastructure.Persistence.Links;
+using UrlShortener.Core.Links;
 using Xunit;
 
 namespace UrlShortener.IntegrationTests.Infrastructure
@@ -27,6 +27,7 @@ namespace UrlShortener.IntegrationTests.Infrastructure
             ["urlshortener_migrator"] = NewPassword(),
             ["urlshortener_api"] = NewPassword(),
             ["urlshortener_redirect"] = NewPassword(),
+            ["urlshortener_worker"] = NewPassword(),
         };
 
         private readonly PostgreSqlContainer _container;
@@ -42,6 +43,7 @@ namespace UrlShortener.IntegrationTests.Infrastructure
                 .WithEnvironment("LINKS_MIGRATOR_PASSWORD", _passwords["urlshortener_migrator"])
                 .WithEnvironment("LINKS_API_PASSWORD", _passwords["urlshortener_api"])
                 .WithEnvironment("LINKS_REDIRECT_PASSWORD", _passwords["urlshortener_redirect"])
+                .WithEnvironment("ANALYTICS_WORKER_PASSWORD", _passwords["urlshortener_worker"])
                 .WithResourceMapping(RolesScriptPath(), "/docker-entrypoint-initdb.d/")
                 .Build();
         }
@@ -54,6 +56,9 @@ namespace UrlShortener.IntegrationTests.Infrastructure
 
         /// <summary>Connection string for the Redirect role (SELECT on redirect_lookup only).</summary>
         public string RedirectConnection => ConnectionFor("urlshortener_redirect");
+
+        /// <summary>Connection string for the worker role (read/write on the analytics schema only).</summary>
+        public string WorkerConnection => ConnectionFor("urlshortener_worker");
 
         /// <summary>Connection string for the bootstrap superuser. Used only for schema inspection in tests.</summary>
         public string BootstrapConnection => _container.GetConnectionString();
@@ -118,13 +123,15 @@ namespace UrlShortener.IntegrationTests.Infrastructure
             await ExecuteAsync(
                 ConnectionFor(BootstrapUser, name),
                 $@"REVOKE ALL ON DATABASE {name} FROM PUBLIC;
-GRANT CONNECT ON DATABASE {name} TO urlshortener_migrator, urlshortener_api, urlshortener_redirect;
+GRANT CONNECT ON DATABASE {name} TO urlshortener_migrator, urlshortener_api, urlshortener_redirect, urlshortener_worker;
 GRANT USAGE ON SCHEMA public TO urlshortener_api, urlshortener_redirect;");
 
             ScratchDatabase scratch = new ScratchDatabase(
                 name,
                 ConnectionFor("urlshortener_migrator", name),
                 ConnectionFor("urlshortener_api", name),
+                ConnectionFor("urlshortener_redirect", name),
+                ConnectionFor("urlshortener_worker", name),
                 ConnectionFor(BootstrapUser, name),
                 DropScratchDatabaseAsync);
             await MigrateAsync(scratch.MigratorConnection);

@@ -1,6 +1,5 @@
 using System;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
@@ -39,7 +38,7 @@ namespace UrlShortener.IntegrationTests.Health
         [Fact]
         public void AnalyticsWorker_console_logs_are_json()
         {
-            using WebApplicationFactory<UrlShortener.AnalyticsWorker.Program> worker = new WebApplicationFactory<UrlShortener.AnalyticsWorker.Program>();
+            using WorkerFactory worker = new WorkerFactory(_db.WorkerConnection);
             AssertJsonConsole(worker.Services);
         }
 

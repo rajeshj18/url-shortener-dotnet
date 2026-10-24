@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Npgsql;
-using UrlShortener.Application.ShortUrls;
+using UrlShortener.Core.Links;
 using UrlShortener.Domain;
 using UrlShortener.IntegrationTests.Infrastructure;
 using Xunit;
@@ -72,7 +72,7 @@ namespace UrlShortener.IntegrationTests.Api
 
             first.StatusCode.Should().Be(HttpStatusCode.Created);
             (await JsonAsync(first)).GetProperty("code").GetString().Should().Be(alias);
-            await AssertProblemAsync(second, HttpStatusCode.Conflict, ApplicationErrorCodes.AliasTaken);
+            await AssertProblemAsync(second, HttpStatusCode.Conflict, ErrorCodes.AliasTaken);
         }
 
         [Fact]
@@ -93,7 +93,7 @@ namespace UrlShortener.IntegrationTests.Api
         [Theory]
         [InlineData("{\"longUrl\":\"ftp://example.com/x\"}", DomainErrorCodes.UrlScheme)]
         [InlineData("{\"longUrl\":\"https://user:pw@example.com/\"}", DomainErrorCodes.UrlCredentials)]
-        [InlineData("{\"longUrl\":\"https://sho.rt/loop\"}", ApplicationErrorCodes.UrlSelfLink)]
+        [InlineData("{\"longUrl\":\"https://sho.rt/loop\"}", ErrorCodes.UrlSelfLink)]
         [InlineData("{}", DomainErrorCodes.UrlRequired)]
         [InlineData("{\"longUrl\":\"https://example.com/\",\"customAlias\":\"spring1\"}", DomainErrorCodes.AliasGeneratedShape)]
         [InlineData("{\"longUrl\":\"https://example.com/\",\"customAlias\":\"health\"}", DomainErrorCodes.AliasReserved)]
@@ -115,7 +115,7 @@ namespace UrlShortener.IntegrationTests.Api
             request.Headers.TryAddWithoutValidation("Idempotency-Key", key);
             using HttpResponseMessage response = await _one.SendAsync(request);
 
-            await AssertProblemAsync(response, HttpStatusCode.BadRequest, ApplicationErrorCodes.IdempotencyKeyFormat);
+            await AssertProblemAsync(response, HttpStatusCode.BadRequest, ErrorCodes.IdempotencyKeyFormat);
         }
 
         [Fact]
@@ -123,7 +123,7 @@ namespace UrlShortener.IntegrationTests.Api
         {
             using HttpResponseMessage response = await PostRawAsync(_one, "{\"longUrl\":\"https://example.com/\"}", new string('k', 129));
 
-            await AssertProblemAsync(response, HttpStatusCode.BadRequest, ApplicationErrorCodes.IdempotencyKeyFormat);
+            await AssertProblemAsync(response, HttpStatusCode.BadRequest, ErrorCodes.IdempotencyKeyFormat);
         }
 
         [Fact]
@@ -174,7 +174,7 @@ namespace UrlShortener.IntegrationTests.Api
             using HttpResponseMessage second = await PostRawAsync(_one, "{\"longUrl\":\"https://example.com/x2\"}", key);
 
             first.StatusCode.Should().Be(HttpStatusCode.Created);
-            await AssertProblemAsync(second, HttpStatusCode.UnprocessableEntity, ApplicationErrorCodes.IdempotencyKeyReused);
+            await AssertProblemAsync(second, HttpStatusCode.UnprocessableEntity, ErrorCodes.IdempotencyKeyReused);
         }
 
         [Fact]

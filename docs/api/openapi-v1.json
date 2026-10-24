@@ -2,7 +2,7 @@
   "openapi": "3.0.4",
   "info": {
     "title": "URL Shortener API",
-    "description": "Management API: create short links. Errors are RFC 7807 problems with a traceId and stable error codes.",
+    "description": "Management API: create, read and delete short links, and read their click statistics. Errors are RFC 7807 problems with a traceId and stable error codes.",
     "version": "v1"
   },
   "paths": {
@@ -191,6 +191,94 @@
           }
         }
       }
+    },
+    "/api/v1/urls/{code}/stats": {
+      "get": {
+        "tags": [
+          "ShortUrls"
+        ],
+        "summary": "Returns the click statistics of the caller\u0027s link: totals, a time series, top referrers and devices.",
+        "description": "Counts exclude bots and \u0060HEAD\u0060 requests and are kept per hour by the analytics worker, usually less than a\nminute behind (\u0060dataFreshAsOf\u0060). \u0060totalClicks\u0060 covers the requested range; buckets without clicks are\nleft out of \u0060series\u0060. Returns \u0060404\u0060 both for unknown codes and for other clients\u0027 links.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "The short code or alias.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Range start (default: 7 days before to).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Range end, exclusive (default: now). The range may be at most 90 days.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "description": "\u0060hour\u0060 or \u0060day\u0060 (default \u0060day\u0060).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -247,6 +335,59 @@
         },
         "additionalProperties": false
       },
+      "LinkStats": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "granularity": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalClicks": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dataFreshAsOf": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatsBucket"
+            },
+            "nullable": true
+          },
+          "topReferrers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferrerClicks"
+            },
+            "nullable": true
+          },
+          "devices": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -273,6 +414,20 @@
           }
         },
         "additionalProperties": {}
+      },
+      "ReferrerClicks": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "nullable": true
+          },
+          "clicks": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
       },
       "ShortUrlDetails": {
         "type": "object",
@@ -307,6 +462,20 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StatsBucket": {
+        "type": "object",
+        "properties": {
+          "bucketStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "clicks": {
+            "type": "integer",
+            "format": "int64"
           }
         },
         "additionalProperties": false

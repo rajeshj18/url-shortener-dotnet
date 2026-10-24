@@ -1,9 +1,9 @@
 using System;
 using FluentAssertions;
-using UrlShortener.Infrastructure.ShortCodes;
+using UrlShortener.Core.Codes;
 using Xunit;
 
-namespace UrlShortener.UnitTests.Infrastructure.ShortCodes
+namespace UrlShortener.UnitTests.Core.Codes
 {
     /// <summary>TSK-07 AC1: fixed-width Base62 over the 7-character code space.</summary>
     public sealed class Base62EncoderTests

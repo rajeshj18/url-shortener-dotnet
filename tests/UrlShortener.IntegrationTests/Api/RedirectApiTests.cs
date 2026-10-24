@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Npgsql;
-using UrlShortener.Application.Redirects;
+using UrlShortener.Core.Analytics;
 using UrlShortener.IntegrationTests.Infrastructure;
 using Xunit;
 

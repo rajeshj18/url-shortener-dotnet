@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
-using UrlShortener.Infrastructure.Persistence.Links;
+using UrlShortener.Core.Links;
 using UrlShortener.IntegrationTests.Infrastructure;
 using Xunit;
 

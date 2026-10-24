@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Npgsql;
-using UrlShortener.Infrastructure.Persistence.Links;
+using UrlShortener.Core.Database;
 
 namespace UrlShortener.IntegrationTests.Infrastructure
 {
@@ -10,11 +10,13 @@ namespace UrlShortener.IntegrationTests.Infrastructure
     {
         private readonly Func<string, Task> _drop;
 
-        internal ScratchDatabase(string name, string migratorConnection, string apiConnection, string bootstrapConnection, Func<string, Task> drop)
+        internal ScratchDatabase(string name, string migratorConnection, string apiConnection, string redirectConnection, string workerConnection, string bootstrapConnection, Func<string, Task> drop)
         {
             Name = name;
             MigratorConnection = migratorConnection;
             ApiConnection = apiConnection;
+            RedirectConnection = redirectConnection;
+            WorkerConnection = workerConnection;
             BootstrapConnection = bootstrapConnection;
             _drop = drop;
         }
@@ -28,14 +30,20 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         /// <summary>Connection string for the Api role.</summary>
         public string ApiConnection { get; }
 
+        /// <summary>Connection string for the Redirect role.</summary>
+        public string RedirectConnection { get; }
+
+        /// <summary>Connection string for the worker role.</summary>
+        public string WorkerConnection { get; }
+
         /// <summary>Connection string for the bootstrap superuser (test setup only).</summary>
         public string BootstrapConnection { get; }
 
         /// <summary>A primary data source as the Api role, the way the Api connects. The caller disposes it.</summary>
         /// <returns>The data source.</returns>
-        public LinksPrimaryDataSource CreateApiDataSource()
+        public PrimaryDatabase CreateApiDataSource()
         {
-            return new LinksPrimaryDataSource(NpgsqlDataSource.Create(ApiConnection));
+            return new PrimaryDatabase(NpgsqlDataSource.Create(ApiConnection));
         }
 
         /// <summary>Runs setup SQL as the bootstrap user.</summary>

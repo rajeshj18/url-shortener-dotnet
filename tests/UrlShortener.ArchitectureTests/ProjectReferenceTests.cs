@@ -9,15 +9,13 @@ using Xunit;
 namespace UrlShortener.ArchitectureTests
 {
     /// <summary>
-    /// ADR-0009 dependency rules, checked at <b>project level</b> by reading the <c>.csproj</c> files.
-    /// Project references are checked even before any types exist, so a forbidden reference is caught
-    /// the moment it is added.
+    /// Dependency rules of the simplified structure (TSK-SIMPLE), checked at <b>project level</b> by reading the
+    /// <c>.csproj</c> files: Domain ← Core ← services, and no service references another.
     /// </summary>
     public sealed class ProjectReferenceTests
     {
         private static readonly string[] Services = { "UrlShortener.Api", "UrlShortener.Redirect", "UrlShortener.AnalyticsWorker" };
-        private static readonly string[] AllowedForApplication = { "UrlShortener.Domain" };
-        private static readonly string[] AllowedForInfrastructure = { "UrlShortener.Application", "UrlShortener.Domain" };
+        private static readonly string[] AllowedForCore = { "UrlShortener.Domain" };
 
         [Fact]
         public void Domain_references_no_project()
@@ -26,15 +24,9 @@ namespace UrlShortener.ArchitectureTests
         }
 
         [Fact]
-        public void Application_references_only_Domain()
+        public void Core_references_only_Domain()
         {
-            ProjectReferencesOf("UrlShortener.Application").Should().BeEquivalentTo(AllowedForApplication);
-        }
-
-        [Fact]
-        public void Infrastructure_references_only_Application_and_Domain()
-        {
-            ProjectReferencesOf("UrlShortener.Infrastructure").Should().BeSubsetOf(AllowedForInfrastructure);
+            ProjectReferencesOf("UrlShortener.Core").Should().BeEquivalentTo(AllowedForCore);
         }
 
         [Theory]
@@ -47,16 +39,16 @@ namespace UrlShortener.ArchitectureTests
         }
 
         /// <summary>
-        /// Positive check: proves the reference parsing actually works on this OS. Without it, a parsing bug
-        /// would make every "never references" rule pass vacuously. That happened on Linux CI in TSK-04.
+        /// Positive check: proves the reference parsing works on this OS. Without it, a parsing bug would make every
+        /// "never references" rule pass vacuously (it happened on Linux CI in TSK-04).
         /// </summary>
         [Theory]
         [InlineData("UrlShortener.Api")]
         [InlineData("UrlShortener.Redirect")]
         [InlineData("UrlShortener.AnalyticsWorker")]
-        public void Service_references_Application_and_Infrastructure(string service)
+        public void Service_references_Core(string service)
         {
-            ProjectReferencesOf(service).Should().Contain(AllowedForInfrastructure[0]).And.Contain("UrlShortener.Infrastructure");
+            ProjectReferencesOf(service).Should().Contain("UrlShortener.Core");
         }
 
         /// <summary>Regression test for TSK-04: .csproj files use Windows separators, which Linux doesn't treat as separators.</summary>

@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Npgsql;
-using UrlShortener.Application.ShortUrls;
+using UrlShortener.Core.Links;
 using UrlShortener.IntegrationTests.Infrastructure;
 using Xunit;
 
@@ -139,7 +139,7 @@ namespace UrlShortener.IntegrationTests.Api
 
             response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
             using JsonDocument body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            body.RootElement.GetProperty("errors")[0].GetProperty("code").GetString().Should().Be(ApplicationErrorCodes.LinkNotFound);
+            body.RootElement.GetProperty("errors")[0].GetProperty("code").GetString().Should().Be(ErrorCodes.LinkNotFound);
         }
 
         private static Uri Url(string code)

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
-using UrlShortener.Application.ShortUrls;
+using UrlShortener.Core.Links;
 using UrlShortener.Domain;
 using UrlShortener.IntegrationTests.Infrastructure;
 using Xunit;
@@ -105,7 +105,7 @@ namespace UrlShortener.IntegrationTests.Api
             sameInstant.StatusCode.Should().Be(HttpStatusCode.Created);
             sameInstant.Headers.Contains(UrlShortener.Api.Controllers.ShortUrlsController.ReplayedHeader).Should().BeTrue("time-zone notation doesn't change the request hash");
             otherInstant.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
-            (await JsonAsync(otherInstant)).GetProperty("errors")[0].GetProperty("code").GetString().Should().Be(ApplicationErrorCodes.IdempotencyKeyReused);
+            (await JsonAsync(otherInstant)).GetProperty("errors")[0].GetProperty("code").GetString().Should().Be(ErrorCodes.IdempotencyKeyReused);
         }
 
         [Theory]

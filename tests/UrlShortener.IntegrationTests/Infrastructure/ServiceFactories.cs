@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -6,12 +7,11 @@ using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-using UrlShortener.Application.Ports;
-using UrlShortener.Application.Redirects;
-using UrlShortener.Infrastructure.Persistence;
+using UrlShortener.Core.Analytics;
+using UrlShortener.Core.Database;
 
 namespace UrlShortener.IntegrationTests.Infrastructure
 {
@@ -44,9 +44,6 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         private readonly IReadOnlyDictionary<string, string>? _settings;
         private readonly Action<IServiceCollection>? _testServices;
 
-        /// <summary>Every log line the Api wrote (all levels).</summary>
-        public CapturingLoggerProvider Logs { get; } = new CapturingLoggerProvider();
-
         public ApiFactory(string primary, bool enableOpenApi = false, IReadOnlyDictionary<string, string>? settings = null, Action<IServiceCollection>? testServices = null)
         {
             _primary = primary ?? throw new ArgumentNullException(nameof(primary));
@@ -55,22 +52,8 @@ namespace UrlShortener.IntegrationTests.Infrastructure
             _testServices = testServices;
         }
 
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
-        {
-            ArgumentNullException.ThrowIfNull(builder);
-            builder
-                .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.PrimaryConnectionName, _primary)
-                .UseSetting("ShortCode:FeistelKey", TestFeistelPassphrase)
-                .UseSetting("PublicBaseUrl", PublicBaseUrl)
-                .UseSetting("ApiKeys:Clients:0:OwnerId", CallerOneOwner)
-                .UseSetting("ApiKeys:Clients:0:KeyHash", Sha256Hex(CallerOneHeader))
-                .UseSetting("ApiKeys:Clients:1:OwnerId", CallerTwoOwner)
-                .UseSetting("ApiKeys:Clients:1:KeyHash", Sha256Hex(CallerTwoHeader))
-                .UseSetting("OpenApi:EnableUi", _enableOpenApi ? "true" : "false")
-                .ConfigureServices(services => services.AddSingleton<ILoggerProvider>(Logs))
-                .ConfigureTestServices(services => _testServices?.Invoke(services));
-            ApplySettings(builder, _settings);
-        }
+        /// <summary>Every log line the Api wrote (all levels).</summary>
+        public CapturingLoggerProvider Logs { get; } = new CapturingLoggerProvider();
 
         /// <summary>A client that sends the given caller's X-Api-Key on every request.</summary>
         /// <param name="header">The X-Api-Key value.</param>
@@ -95,6 +78,23 @@ namespace UrlShortener.IntegrationTests.Infrastructure
             }
         }
 
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            ArgumentNullException.ThrowIfNull(builder);
+            builder
+                .UseSetting("ConnectionStrings:" + ConnectionStrings.LinksPrimary, _primary)
+                .UseSetting("ShortCode:FeistelKey", TestFeistelPassphrase)
+                .UseSetting("PublicBaseUrl", PublicBaseUrl)
+                .UseSetting("ApiKeys:Clients:0:OwnerId", CallerOneOwner)
+                .UseSetting("ApiKeys:Clients:0:KeyHash", Sha256Hex(CallerOneHeader))
+                .UseSetting("ApiKeys:Clients:1:OwnerId", CallerTwoOwner)
+                .UseSetting("ApiKeys:Clients:1:KeyHash", Sha256Hex(CallerTwoHeader))
+                .UseSetting("OpenApi:EnableUi", _enableOpenApi ? "true" : "false")
+                .ConfigureServices(services => services.AddSingleton<ILoggerProvider>(Logs))
+                .ConfigureTestServices(services => _testServices?.Invoke(services));
+            ApplySettings(builder, _settings);
+        }
+
         private static string Sha256Hex(string value)
         {
             return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
@@ -107,50 +107,66 @@ namespace UrlShortener.IntegrationTests.Infrastructure
         private readonly string _connection;
         private readonly string? _primary;
         private readonly IReadOnlyDictionary<string, string>? _settings;
-        private readonly Action<IServiceCollection>? _testServices;
 
         /// <param name="connection">The Redirect role's connection, used for the replicas (and the primary, unless overridden).</param>
         /// <param name="primary">A different primary, e.g. an unreachable one for breaker tests.</param>
         /// <param name="settings">Extra configuration.</param>
-        /// <param name="testServices">Service overrides.</param>
-        public RedirectFactory(string connection, string? primary = null, IReadOnlyDictionary<string, string>? settings = null, Action<IServiceCollection>? testServices = null)
+        public RedirectFactory(string connection, string? primary = null, IReadOnlyDictionary<string, string>? settings = null)
         {
             _connection = connection ?? throw new ArgumentNullException(nameof(connection));
             _primary = primary;
             _settings = settings;
-            _testServices = testServices;
         }
 
-        /// <summary>Every click event the Redirect service published (replaces the no-op publisher).</summary>
-        public RecordingClickEventPublisher Clicks { get; } = new RecordingClickEventPublisher();
+        /// <summary>Every click the Redirect service accepted (sent to Kafka only if a test configures brokers).</summary>
+        public ClickRecorder Clicks { get; } = new ClickRecorder();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             ArgumentNullException.ThrowIfNull(builder);
             builder
-                .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.PrimaryConnectionName, _primary ?? _connection)
-                .UseSetting("ConnectionStrings:" + LinksPersistenceServiceCollectionExtensions.ReplicasConnectionName, _connection)
-                .ConfigureTestServices(services =>
-                {
-                    services.RemoveAll<IClickEventPublisher>();
-                    services.AddSingleton<IClickEventPublisher>(Clicks);
-                    _testServices?.Invoke(services);
-                });
+                .UseSetting("ConnectionStrings:" + ConnectionStrings.LinksPrimary, _primary ?? _connection)
+                .UseSetting("ConnectionStrings:" + ConnectionStrings.LinksReplicas, _connection)
+                .ConfigureTestServices(services => services.AddSingleton(provider =>
+                    Clicks.Attach(new ClickPublisher(KafkaOptions.Read(provider.GetRequiredService<IConfiguration>())))));
             ApiFactory.ApplySettings(builder, _settings);
         }
     }
 
-    /// <summary>Records published click events for assertions.</summary>
-    public sealed class RecordingClickEventPublisher : IClickEventPublisher
+    /// <summary>In-memory AnalyticsWorker connected as the worker role.</summary>
+    public sealed class WorkerFactory : WebApplicationFactory<UrlShortener.AnalyticsWorker.Program>
+    {
+        private readonly string _analytics;
+        private readonly IReadOnlyDictionary<string, string>? _settings;
+
+        public WorkerFactory(string analytics, IReadOnlyDictionary<string, string>? settings = null)
+        {
+            _analytics = analytics ?? throw new ArgumentNullException(nameof(analytics));
+            _settings = settings;
+        }
+
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            ArgumentNullException.ThrowIfNull(builder);
+            builder.UseSetting("ConnectionStrings:" + ConnectionStrings.Analytics, _analytics);
+            ApiFactory.ApplySettings(builder, _settings);
+        }
+    }
+
+    /// <summary>Records the clicks a <see cref="ClickPublisher"/> accepts.</summary>
+    public sealed class ClickRecorder
     {
         /// <summary>The events, in publish order.</summary>
-        public System.Collections.Concurrent.ConcurrentQueue<ClickEvent> Events { get; } = new System.Collections.Concurrent.ConcurrentQueue<ClickEvent>();
+        public ConcurrentQueue<ClickEvent> Events { get; } = new ConcurrentQueue<ClickEvent>();
 
-        /// <inheritdoc />
-        public bool TryPublish(ClickEvent clickEvent)
+        /// <summary>Subscribes to the publisher.</summary>
+        /// <param name="publisher">The publisher.</param>
+        /// <returns>The same publisher.</returns>
+        public ClickPublisher Attach(ClickPublisher publisher)
         {
-            Events.Enqueue(clickEvent);
-            return true;
+            ArgumentNullException.ThrowIfNull(publisher);
+            publisher.Accepted += (_, e) => Events.Enqueue(e.Click);
+            return publisher;
         }
     }
 }

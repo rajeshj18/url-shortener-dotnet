@@ -9,6 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\UrlShortener.Domain\UrlShortener.Domain.csproj" />
-    <ProjectReference Include="..\..\src\UrlShortener.Infrastructure\UrlShortener.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\UrlShortener.Core\UrlShortener.Core.csproj" />
   </ItemGroup>
 </Project>

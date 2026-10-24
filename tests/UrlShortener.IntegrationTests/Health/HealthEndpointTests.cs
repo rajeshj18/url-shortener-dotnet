@@ -4,7 +4,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
-using UrlShortener.Infrastructure.Web;
+using UrlShortener.Core.Web;
 using UrlShortener.IntegrationTests.Infrastructure;
 using Xunit;
 
@@ -29,8 +29,8 @@ namespace UrlShortener.IntegrationTests.Health
         }
 
         [Theory]
-        [InlineData(HealthEndpointExtensions.LivePath)]
-        [InlineData(HealthEndpointExtensions.ReadyPath)]
+        [InlineData(WebDefaults.LivePath)]
+        [InlineData(WebDefaults.ReadyPath)]
         public async Task Api_health_endpoint_returns_200(string path)
         {
             using ApiFactory factory = new ApiFactory(_db.ApiConnection);
@@ -39,8 +39,8 @@ namespace UrlShortener.IntegrationTests.Health
         }
 
         [Theory]
-        [InlineData(HealthEndpointExtensions.LivePath)]
-        [InlineData(HealthEndpointExtensions.ReadyPath)]
+        [InlineData(WebDefaults.LivePath)]
+        [InlineData(WebDefaults.ReadyPath)]
         public async Task Redirect_health_endpoint_returns_200(string path)
         {
             using RedirectFactory factory = new RedirectFactory(_db.RedirectConnection);
@@ -49,13 +49,24 @@ namespace UrlShortener.IntegrationTests.Health
         }
 
         [Theory]
-        [InlineData(HealthEndpointExtensions.LivePath)]
-        [InlineData(HealthEndpointExtensions.ReadyPath)]
+        [InlineData(WebDefaults.LivePath)]
+        [InlineData(WebDefaults.ReadyPath)]
         public async Task AnalyticsWorker_health_endpoint_returns_200(string path)
         {
-            using WebApplicationFactory<UrlShortener.AnalyticsWorker.Program> factory = new WebApplicationFactory<UrlShortener.AnalyticsWorker.Program>();
+            // No brokers configured: the consumer logs that it is off; health still reflects the analytics database.
+            using WorkerFactory factory = new WorkerFactory(_db.WorkerConnection);
             using HttpClient client = factory.CreateClient();
             await AssertStatusAsync(client, path, HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task AnalyticsWorker_database_down_is_live_but_not_ready()
+        {
+            using WorkerFactory factory = new WorkerFactory(UnreachableDatabase);
+            using HttpClient client = factory.CreateClient();
+
+            await AssertStatusAsync(client, WebDefaults.LivePath, HttpStatusCode.OK);
+            await AssertStatusAsync(client, WebDefaults.ReadyPath, HttpStatusCode.ServiceUnavailable);
         }
 
         [Fact]
@@ -66,12 +77,12 @@ namespace UrlShortener.IntegrationTests.Health
             await using ScratchDatabase scratch = await _db.CreateScratchDatabaseAsync();
             using ApiFactory factory = new ApiFactory(scratch.ApiConnection);
             using HttpClient client = factory.CreateClient();
-            await AssertStatusAsync(client, HealthEndpointExtensions.ReadyPath, HttpStatusCode.OK);
+            await AssertStatusAsync(client, WebDefaults.ReadyPath, HttpStatusCode.OK);
 
             await scratch.DropAsync();
 
-            await AssertStatusAsync(client, HealthEndpointExtensions.LivePath, HttpStatusCode.OK);
-            await AssertStatusAsync(client, HealthEndpointExtensions.ReadyPath, HttpStatusCode.ServiceUnavailable);
+            await AssertStatusAsync(client, WebDefaults.LivePath, HttpStatusCode.OK);
+            await AssertStatusAsync(client, WebDefaults.ReadyPath, HttpStatusCode.ServiceUnavailable);
         }
 
         [Fact]
@@ -93,8 +104,8 @@ namespace UrlShortener.IntegrationTests.Health
             using RedirectFactory factory = new RedirectFactory(UnreachableDatabase);
             using HttpClient client = factory.CreateClient();
 
-            await AssertStatusAsync(client, HealthEndpointExtensions.LivePath, HttpStatusCode.OK);
-            await AssertStatusAsync(client, HealthEndpointExtensions.ReadyPath, HttpStatusCode.ServiceUnavailable);
+            await AssertStatusAsync(client, WebDefaults.LivePath, HttpStatusCode.OK);
+            await AssertStatusAsync(client, WebDefaults.ReadyPath, HttpStatusCode.ServiceUnavailable);
         }
 
         /// <summary>Asserts the status code. The caller owns, and disposes, the client (CodeQL "missed using" note).</summary>

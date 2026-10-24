@@ -8,8 +8,9 @@ using Xunit;
 namespace UrlShortener.ArchitectureTests
 {
     /// <summary>
-    /// ADR-0009 dependency rules, checked at <b>type level</b> with NetArchTest. As the layers fill up
-    /// (TSK-05 onwards), these tests catch forbidden usages inside the compiled code.
+    /// Dependency rules of the simplified structure (TSK-SIMPLE), checked at <b>type level</b> with NetArchTest.
+    /// The DDD rule that matters most stays: the domain model is plain C#. Controllers stay thin: they call Core
+    /// services and never touch the database or Kafka themselves.
     /// </summary>
     public sealed class TypeDependencyTests
     {
@@ -17,36 +18,25 @@ namespace UrlShortener.ArchitectureTests
 
         private static readonly string[] Frameworks =
         {
-            "Microsoft.AspNetCore", "Microsoft.EntityFrameworkCore", "Microsoft.Extensions", "Npgsql", "Confluent.Kafka",
+            "Microsoft.AspNetCore", "Microsoft.EntityFrameworkCore", "Microsoft.Extensions", "Npgsql", "Confluent.Kafka", "Polly",
         };
 
-        private static readonly string[] InnerLayersForDomain = { "UrlShortener.Application", "UrlShortener.Infrastructure" };
+        private static readonly string[] CoreProject = { "UrlShortener.Core" };
 
-        private static readonly string[] ForbiddenForApplication =
-        {
-            "UrlShortener.Infrastructure", "Microsoft.AspNetCore", "Microsoft.EntityFrameworkCore", "Npgsql", "Confluent.Kafka",
-        };
+        private static readonly string[] DataAccess = { "Microsoft.EntityFrameworkCore", "Npgsql", "Confluent.Kafka", "Polly" };
 
         [Fact]
-        public void Domain_depends_on_no_other_layer_or_framework()
+        public void Domain_depends_on_no_other_project_or_framework()
         {
-            string[] forbidden = InnerLayersForDomain.Concat(ServiceNamespaces).Concat(Frameworks).ToArray();
+            string[] forbidden = CoreProject.Concat(ServiceNamespaces).Concat(Frameworks).ToArray();
 
             AssertNoDependency(Load("UrlShortener.Domain"), forbidden);
         }
 
         [Fact]
-        public void Application_depends_on_no_infrastructure_service_or_persistence_framework()
+        public void Core_depends_on_no_service()
         {
-            string[] forbidden = ForbiddenForApplication.Concat(ServiceNamespaces).ToArray();
-
-            AssertNoDependency(Load("UrlShortener.Application"), forbidden);
-        }
-
-        [Fact]
-        public void Infrastructure_depends_on_no_service()
-        {
-            AssertNoDependency(Load("UrlShortener.Infrastructure"), ServiceNamespaces);
+            AssertNoDependency(Load("UrlShortener.Core"), ServiceNamespaces);
         }
 
         [Theory]
@@ -61,14 +51,14 @@ namespace UrlShortener.ArchitectureTests
         [Theory]
         [InlineData("UrlShortener.Api")]
         [InlineData("UrlShortener.Redirect")]
-        public void Controllers_depend_on_no_infrastructure_type(string service)
+        public void Controllers_use_no_database_or_messaging_type(string service)
         {
             TestResult result = Types.InAssembly(Load(service))
                 .That().Inherit(typeof(ControllerBase))
-                .ShouldNot().HaveDependencyOn("UrlShortener.Infrastructure")
+                .ShouldNot().HaveDependencyOnAny(DataAccess)
                 .GetResult();
 
-            result.IsSuccessful.Should().BeTrue("controllers may only use Application interfaces (ADR-0009); offending: {0}",
+            result.IsSuccessful.Should().BeTrue("controllers only map HTTP to Core services; offending: {0}",
                 string.Join(", ", result.FailingTypeNames ?? Enumerable.Empty<string>()));
         }
 
