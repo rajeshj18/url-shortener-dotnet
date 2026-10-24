@@ -8,6 +8,8 @@ RUN dotnet restore src/UrlShortener.Redirect/UrlShortener.Redirect.csproj
 RUN dotnet publish src/UrlShortener.Redirect/UrlShortener.Redirect.csproj -c Release -o /app --no-restore /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
+# Kafka's native client (librdkafka, Alpine build) links against libsasl2, which the base image lacks (TSK-SIMPLE).
+RUN apk add --no-cache cyrus-sasl
 WORKDIR /app
 COPY --from=build /app ./
 # Non-root user provided by the .NET images (ADR-0011).

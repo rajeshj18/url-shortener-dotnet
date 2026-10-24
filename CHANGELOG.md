@@ -6,6 +6,10 @@ Each entry names the task (`TSK-xx`) that made the change.
 
 ## [Unreleased]
 
+### Changed (comparison branch only, TSK-SIMPLE; never merged to `main`)
+- Application and Infrastructure replaced by one feature-organised **Core** project with concrete services (`LinkService`, `RedirectService`, `StatsService`, `CodeAllocator`, `ClickPublisher`, `ClickConsumer`); 0 own interfaces instead of 14. Domain, API contract, `links` schema and error codes unchanged. See [docs/simplified-comparison.md](docs/simplified-comparison.md).
+- **Analytics (FR-07, NFR-08):** Redirect publishes `ClickEvent v1` to Kafka without blocking; the AnalyticsWorker keeps hourly, referrer and device rollups exactly once (offsets in the same transaction); `GET /api/v1/urls/{code}/stats` for the owner (`stats.range` for bad ranges). Expand-only migration `AddAnalytics` (`analytics` schema, role `urlshortener_worker`); Redpanda and the worker in compose.
+
 ### Added
 - Close-out documents (TSK-QW): [final engineering summary](docs/08-final-summary.md), [testing strategy](docs/05-testing-strategy.md), [risks and trade-offs](docs/06-risks-tradeoffs.md), [scenario 2 write-up](docs/scenarios/02-brownfield.md); the project status marks TSK-16 onward as descoped.
 - JSON console logging with UTC timestamps in all three services, as ADR-0013 specifies (TSK-QW).

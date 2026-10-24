@@ -8,7 +8,9 @@ $endpoints = @(
     'http://localhost:5080/health/live',
     'http://localhost:5080/health/ready',
     'http://localhost:5081/health/live',
-    'http://localhost:5081/health/ready'
+    'http://localhost:5081/health/ready',
+    'http://localhost:5082/health/live',
+    'http://localhost:5082/health/ready'
 )
 
 function Fail([string]$message) {

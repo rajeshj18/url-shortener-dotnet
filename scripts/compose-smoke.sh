@@ -10,6 +10,8 @@ ENDPOINTS=(
   "http://localhost:5080/health/ready"
   "http://localhost:5081/health/live"
   "http://localhost:5081/health/ready"
+  "http://localhost:5082/health/live"
+  "http://localhost:5082/health/ready"
 )
 
 fail() { echo "SMOKE FAILED: $*" >&2; exit 1; }

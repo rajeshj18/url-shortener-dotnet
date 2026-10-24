@@ -6,6 +6,13 @@ A URL shortener service (core APIs, analytics, reliability) built with **.NET 8*
 **AI-assisted engineering workflow** used to build it. Both are deliverables
 ([ADR-0001](docs/adr/0001-deliverable-scope-product-and-workflow.md)).
 
+> **This branch (`task/TSK-SIMPLE-simplified-rewrite`) is a comparison branch, never merged to `main`.** It
+> re-implements the same requirements with a simpler structure (Domain + one feature-organised Core project, no
+> SOLID-only abstractions) and adds analytics (Kafka click events, an exactly-once worker, a stats endpoint).
+> Read [the comparison](docs/simplified-comparison.md) first. The local stack gains Redpanda and the worker; add
+> `ANALYTICS_WORKER_PASSWORD` from `.env.example` to your `.env` and run `docker compose down -v` once (new role).
+> The rest of this README describes `main`.
+>
 > **Current status: stage 1 closed after TSK-15** (engineer's decision, 2026-10-23), plus the close-out task TSK-QW.
 > - Built and tested: create, redirect, metadata and delete, idempotent retries, short-code generation, resilience,
 >   link expiry, a load test and a k6 gate in CI. See the [final summary](docs/08-final-summary.md).
