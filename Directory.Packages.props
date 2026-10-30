@@ -18,7 +18,7 @@
   </ItemGroup>
   <ItemGroup Label="Application">
     <!-- Logging abstractions only (ILogger), matching the .NET 8 framework; Application never references a host. -->
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
   </ItemGroup>
   <ItemGroup Label="Resilience (LLD §6.7, TSK-11)">
     <!-- Polly v8 engine only. Microsoft.Extensions.Resilience is 10.x-only now and would pull .NET 10 assemblies. -->
